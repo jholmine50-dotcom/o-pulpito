@@ -310,3 +310,15 @@ body.slide-full .pf-media:hover .pf-media-tag,body.slide-full .pf-media:hover .p
 .pp-tp{display:block;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--c);font-weight:800;margin-bottom:2px}
 .pp-it{border-left:4px solid var(--c);padding-left:10px}
 @media (prefers-reduced-motion:reduce){.pg-tour-hl,.pg-seg{transition:none}.pg-item.flash .pg-card{animation:none}}
+
+/* arrastar cartões */
+.pg-item:not(.editing) .pg-card{cursor:grab}
+.pg-grip{display:inline-flex;align-items:center;justify-content:center;width:18px;height:22px;margin:-2px 2px -2px -6px;border-radius:6px;color:#5d6675;font-size:14px;line-height:1;cursor:grab;touch-action:none;user-select:none}
+.pg-item:hover .pg-grip{color:#cfd8e2;background:rgba(255,255,255,.06)}
+.pg-dragging{opacity:.28}
+.pg-dragging .pg-card{border-style:dashed!important}
+.pg-ghost{position:fixed;z-index:950;pointer-events:none;margin:0;grid-template-columns:76px 28px minmax(0,1fr)}
+.pg-ghost .pg-card{box-shadow:0 26px 60px rgba(0,0,0,.6),0 0 0 2px var(--c);background:rgba(18,23,32,.97)!important;cursor:grabbing}
+body.pg-drag,body.pg-drag *{cursor:grabbing!important;user-select:none!important}
+@media (prefers-reduced-motion:reduce){.pg-ghost{transform:none!important}}
+.pg-ghost .pg-time,.pg-ghost .pg-rail{visibility:hidden}

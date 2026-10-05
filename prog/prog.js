@@ -146,12 +146,12 @@ function render(){
 }
 function rowHTML(it,bn){
   const an=C.mentions(it.texto).map(n=>bn[n]).filter(Boolean),t=C.tipo(it.tipo);
-  return `<article class="pg-item" data-id="${it.id}" tabindex="0" style="--c:${t.color}" aria-label="${C.esc((it.hora||'sem hora')+' '+t.label+' '+it.titulo)}">
+  return `<article class="pg-item" data-id="${it.id}" tabindex="0" title="Clique para editar · arraste para mudar a ordem" style="--c:${t.color}" aria-label="${C.esc((it.hora||'sem hora')+' '+t.label+' '+it.titulo)}">
     <div class="pg-time"><b>${C.esc(it.hora||'--:--')}</b><small class="pg-until"></small></div>
     <div class="pg-rail"><span class="pg-dot"></span></div>
     <div class="pg-card">
-      <div class="pg-top"><span class="pg-tipo">${C.tipoIcon(it.tipo)}${t.label}</span><span class="pg-badge"></span>
-        <span class="pg-acts">${P.auto?`<button type="button" class="pg-tool" data-act="up" aria-label="Mover para cima" title="Mover para cima">▲</button><button type="button" class="pg-tool" data-act="down" aria-label="Mover para baixo" title="Mover para baixo">▼</button>`:''}<button type="button" class="pg-tool" data-act="ign" title="${it.estado==='ignorado'?'Volta a contar este momento':'Pula este momento (fica preto)'}">${it.estado==='ignorado'?'REATIVAR':'IGNORAR'}</button><button type="button" class="pg-tool" data-act="edit">EDITAR</button></span></div>
+      <div class="pg-top"><span class="pg-grip" aria-hidden="true" title="Arraste para mudar a ordem">⠿</span><span class="pg-tipo">${C.tipoIcon(it.tipo)}${t.label}</span><span class="pg-badge"></span>
+        <span class="pg-acts"><button type="button" class="pg-tool" data-act="ign" title="${it.estado==='ignorado'?'Volta a contar este momento':'Pula este momento (fica preto)'}">${it.estado==='ignorado'?'REATIVAR':'IGNORAR'}</button><button type="button" class="pg-tool" data-act="edit">EDITAR</button></span></div>
       <h4>${C.esc(it.titulo||'(sem título)')}${+it.dur>0?`<small class="pg-dur">${C.dur(+it.dur)}</small>`:''}</h4>
       ${it.texto?`<div class="pg-text">${C.renderText(it.texto,bn)}</div>`:''}
       <div class="pg-bar"><i></i></div>
@@ -170,7 +170,6 @@ function editHTML(it){
       <div class="pg-tip">Dica: digite <b>@</b> no texto para anexar slide, imagem, vídeo, música ou letra — ou arraste o arquivo para cá.</div>
       <div class="pg-edit-row">
         <label>Duração <input type="number" name="dur" min="1" max="600" value="${C.esc(it.dur)}" placeholder="${P.auto?'10':'auto'}" ${P.auto?'required':''}> min</label>
-        ${P.auto?`<button type="button" class="pg-tool" data-act="up" aria-label="Mover para cima">▲</button><button type="button" class="pg-tool" data-act="down" aria-label="Mover para baixo">▼</button>`:''}
         <span class="pg-sp"></span>
         <button type="button" class="pg-tool danger" data-act="del">EXCLUIR</button>
         <button type="button" class="pg-tool" data-act="ign">${it.estado==='ignorado'?'REATIVAR':'IGNORAR'}</button>
@@ -320,6 +319,7 @@ async function openModelos(){
 const TOUR=[
   {el:'#pgSum',t:'O culto inteiro numa barra',d:'Cada cor é um tipo de momento (louvor, oração, pregação…) e a linha vermelha é o horário de agora. Clique numa cor para ir até aquele momento.'},
   {el:'#pgList .pg-item',t:'Cada cartão é um momento',d:'A bolinha mostra o estado pelo relógio: <b style="color:#4ade80">verde</b> no ar, <b style="color:#fb923c">laranja</b> vai começar, <b style="color:#93c5fd">azul</b> agendado, <b style="color:#94a3b8">cinza</b> já foi e <b>preta</b> ignorado. Clique no cartão para editar.'},
+  {el:'#pgList .pg-item .pg-grip',up:'.pg-item',t:'Arraste para mudar a ordem',d:'Segure um cartão e arraste para cima ou para baixo (no celular/tablet, segure pela alça <b>⠿</b>). Os horários se ajustam sozinhos. No teclado: <kbd>Alt</kbd> + <kbd>↑</kbd> <kbd>↓</kbd>.'},
   {el:'#pgCascade',t:'Horários automáticos',d:'Ligado, você só diz quanto tempo cada momento dura e os horários se ajustam sozinhos. Atrasou durante o culto? Use <b>+5 MIN</b> ou <b>PRÓXIMO AGORA</b> no resumo lá em cima.'},
   {el:'#pgLibBox',t:'Anexos com @',d:'Digite <b>@</b> no texto de um momento para anexar slide, imagem, vídeo, música ou letra — ou arraste o arquivo para esta aba. O <b>▶</b> mostra no palco.'},
   {el:'#pgModelos',t:'Modelos prontos',d:'Comece de um culto de domingo, de oração, Santa Ceia ou casamento e ajuste o que precisar.'},
@@ -418,13 +418,68 @@ function commitEdit(el){
   const d=el.querySelector('[name=dur]').value;it.dur=d&&+d>0?String(Math.round(+d)):(P.auto?'10':'');
   P.exemplo=false;
 }
+function reorder(ids,movedId){
+  const by=Object.fromEntries(P.items.map(i=>[i.id,i])),neu=ids.map(id=>by[id]).filter(Boolean);
+  P.items.forEach(i=>{if(!neu.includes(i))neu.push(i)});
+  if(P.auto){const start=P.items[0]&&P.items[0].hora;P.items=neu;if(start&&P.items[0])P.items[0].hora=start}
+  else{const times=C.sorted(P.items).map(i=>i.hora);neu.forEach((it,k)=>{it.hora=times[k]});P.items=neu}
+  P.exemplo=false;normalize();save();render();
+  const el=movedId&&document.querySelector('#pgList .pg-item[data-id="'+movedId+'"]');
+  if(el){el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),1200);el.focus({preventScroll:true})}
+}
 function move(it,dir){
-  const i=P.items.indexOf(it),j=i+dir;if(i<0||j<0||j>=P.items.length)return;
-  const start=P.items[0]?P.items[0].hora:'';
-  P.items.splice(i,1);P.items.splice(j,0,it);
-  if(start&&P.items[0])P.items[0].hora=start; // o culto continua começando na mesma hora
-  normalize();save();render();
-  const el=document.querySelector('#pgList .pg-item[data-id="'+it.id+'"]');if(el)el.focus();
+  const ids=ordered().map(i=>i.id),i=ids.indexOf(it.id),j=i+dir;if(i<0||j<0||j>=ids.length)return;
+  ids.splice(i,1);ids.splice(j,0,it.id);reorder(ids,it.id);
+}
+/* arrastar os cartões para mudar a ordem */
+let drag=null,dragClick=false;
+function wireDrag(){
+  const list=$('pgList'),panel=$('panel-prog');
+  list.addEventListener('pointerdown',e=>{
+    if(e.button!==0||drag)return;
+    const item=e.target.closest('.pg-item');if(!item||item.classList.contains('editing'))return;
+    if(e.target.closest('button,a,input,textarea,select'))return;
+    if(e.pointerType!=='mouse'&&!e.target.closest('.pg-grip'))return; // no toque, arraste pela alça ⠿
+    if(e.pointerType==='mouse')e.preventDefault(); // não seleciona texto ao arrastar
+    drag={item,x0:e.clientX,y0:e.clientY,pid:e.pointerId,on:false};
+  });
+  addEventListener('pointermove',e=>{
+    if(!drag||e.pointerId!==drag.pid)return;
+    if(!drag.on){if(Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)<6)return;startDrag()}
+    e.preventDefault();
+    drag.ghost.style.transform='translate3d(0,'+(e.clientY-drag.y0)+'px,0) rotate(.6deg)';
+    const others=[...list.querySelectorAll('.pg-item')].filter(x=>x!==drag.item);
+    const before=others.find(x=>{const r=x.getBoundingClientRect();return e.clientY<r.top+r.height/2});
+    const ref=before||$('pgAdd2');
+    if(drag.item.nextElementSibling!==ref)list.insertBefore(drag.item,ref);
+    const pr=panel.getBoundingClientRect();
+    if(e.clientY<pr.top+90)panel.scrollTop-=14;else if(e.clientY>pr.bottom-70)panel.scrollTop+=14;
+  },{passive:false});
+  const stop=commit=>{
+    if(!drag)return;const d=drag;drag=null;
+    if(!d.on)return;
+    d.ghost.remove();d.item.classList.remove('pg-dragging');document.body.classList.remove('pg-drag');
+    dragClick=true;setTimeout(()=>{dragClick=false},0);
+    if(commit)reorder([...list.querySelectorAll('.pg-item')].map(x=>x.dataset.id),d.item.dataset.id);else render();
+  };
+  addEventListener('pointerup',e=>{if(drag&&e.pointerId===drag.pid)stop(true)});
+  addEventListener('pointercancel',()=>stop(false));
+  addEventListener('keydown',e=>{if(drag&&drag.on&&e.key==='Escape'){e.stopPropagation();stop(false)}},true);
+  list.addEventListener('click',e=>{if(dragClick){e.stopPropagation();e.preventDefault()}},true);
+  // teclado: Alt + ↑/↓ no cartão
+  list.addEventListener('keydown',e=>{
+    if(!e.altKey||(e.key!=='ArrowUp'&&e.key!=='ArrowDown'))return;
+    const item=e.target.closest&&e.target.closest('.pg-item');if(!item||item.classList.contains('editing'))return;
+    const it=P.items.find(i=>i.id===item.dataset.id);if(!it)return;
+    e.preventDefault();e.stopPropagation();move(it,e.key==='ArrowUp'?-1:1);
+  });
+}
+function startDrag(){
+  const it=drag.item,r=it.getBoundingClientRect(),g=it.cloneNode(true);
+  g.classList.add('pg-ghost');g.removeAttribute('tabindex');g.setAttribute('aria-hidden','true');
+  Object.assign(g.style,{left:r.left+'px',top:r.top+'px',width:r.width+'px'});
+  document.body.appendChild(g);drag.ghost=g;drag.on=true;
+  it.classList.add('pg-dragging');document.body.classList.add('pg-drag');
 }
 function finishEdit(){
   const el=document.querySelector('#pgList .pg-item.editing');if(el)commitEdit(el);
@@ -820,7 +875,7 @@ function wire(){
   $('pgAc').addEventListener('mousedown',e=>{const o=e.target.closest('[data-i]');if(o){e.preventDefault();acPick(+o.dataset.i)}});
   wrap.addEventListener('focusout',e=>{if(e.target.matches&&e.target.matches('.pg-edit textarea'))setTimeout(()=>{if(document.activeElement!==ac.ta)hideAc()},150)});
   ['pgTitle','pgDate'].forEach(id=>$(id).addEventListener('keydown',e=>e.stopPropagation()));
-  wireDrop();
+  wireDrop();wireDrag();
 }
 
 /* ---------------- início ---------------- */
