@@ -100,15 +100,19 @@ const FUNDO=[
   {el:'.timeline-card',t:'Linha do tempo e loop',d:'Mostra quanto tocou e quanto falta — arraste para pular. Ligue o <b>LOOP</b> para a música não acabar no meio da pregação.'},
   {el:'.mode-switch',t:'BASE ou FULL',d:'<b>BASE</b> mostra só o essencial. <b>FULL</b> mostra também o volume geral e cada instrumento, para mutar um por um.'},
   {el:'#tsMirror',t:'Controle pelo celular',d:'<b>ESPELHAR</b> mostra o código da sala. Com ele, o celular vira controle remoto de tudo isso.'},
-  {el:'#tab-prog',t:'Quando um momento acaba',d:'Se você usa a <b>Programação</b>, ao fim de cada momento a tela vem sozinha para lá e pergunta <b>“Acabou?”</b> — dá para seguir, atrasar só aquele momento ou atrasar tudo. A música não para. (No Slide aparece só um aviso pequeno.)'},
-  {el:'#tab-slide',t:'Três abas',d:'<b>Fundo</b> (música), <b>Slide</b> (Canva e mídia) e <b>Programação</b> (o roteiro do culto). A música continua tocando quando você troca de aba. Atalhos: '+K('Alt')+' + '+K('1')+' '+K('2')+' '+K('3')+'.'},
+  {el:'#tab-prog',t:'Quando um momento acaba',d:'Se você usa a <b>Programação</b>, ao fim de cada momento a tela vem sozinha para lá e pergunta <b>“Acabou?”</b> — dá para seguir, atrasar só aquele momento ou atrasar tudo. A música não para. (Na Projeção aparece só um aviso pequeno.)'},
+  {el:'#pfMini',t:'O relógio sempre à vista',d:'Este relógio pequeno mostra o momento que está no ar e quanto falta — em qualquer aba. Clique nele para ir à Programação.'},
+  {el:'#tab-slide',t:'Três abas',d:'<b>Fundo</b> (música), <b>Projeção</b> (o que vai no telão) e <b>Programação</b> (o roteiro do culto). A música continua tocando quando você troca de aba. Atalhos: '+K('Alt')+' + '+K('1')+' '+K('2')+' '+K('3')+'.'},
   {el:'#tsHelp',t:'Ficou com dúvida?',d:'O botão <b>?</b> mostra o passo a passo da aba em que você estiver, quando quiser.'}
 ];
 const SLIDE=[
+  {el:'#pjOpen',up:'.pj-st',t:'Janela de projeção',d:'Clique em <b>JANELA DE PROJEÇÃO ↗</b>: abre uma janela limpa, só com o que vai no telão. Arraste-a para o projetor/TV e clique nela uma vez (fica em tela cheia e libera o som). Pronto: você não precisa mais arrastar o palco de um lado para o outro. O <b>⧉</b> copia o link.'},
+  {el:'#pjFila',up:'.pj-bar',t:'A fila do momento',d:'Quando um momento da Programação entra no ar, os anexos dele aparecem aqui, em ordem, e vão sozinhos para a projeção. Clique num anexo para mostrar; ◀ ▶ passam.'},
+  {el:'#pjFila',up:'.pj-bar',t:'Passar para o próximo?',d:'Quando um <b>vídeo</b>, <b>YouTube</b> ou <b>música</b> termina, aparece aqui: <b>SIM</b> passa para o próximo anexo, <b>REPETIR</b> toca de novo, <b>NÃO</b> fica onde está.'},
   {el:'#slUrl',up:'.sl-bar',t:'Abrir uma apresentação',d:'Cole o link do Canva (até o encurtado) e clique <b>ABRIR</b>. Pelo celular também dá.'},
   {el:'.sl-nav',t:'Passar os slides',d:'‹ › passam os slides. Funciona também com as setas '+K('←')+' '+K('→')+' e com passador de slides ('+K('PgUp')+' '+K('PgDn')+').'},
   {el:'#slFull',t:'Tela cheia para projetar',d:'Use <b>TELA CHEIA</b> na hora de projetar — '+K('Esc')+' sai. Se o telão espelha este PC, ele mostra a aba que estiver aberta.'},
-  {el:'#panel-slide .sl-area',t:'Onde o slide aparece',d:'Aqui aparece o slide. O trackpad do celular vira um <b>laser vermelho</b> por cima dele. Imagens, vídeos e letras anexados na Programação também aparecem aqui.'},
+  {el:'#panel-slide .sl-area',t:'Onde o slide aparece',d:'Aqui aparece o slide. O trackpad do celular vira um <b>laser vermelho</b> por cima dele. Imagens, vídeos, YouTube e letras anexados na Programação também. Com a janela de projeção aberta, aqui vira o monitor (o vídeo passa só lá).'},
   {el:'#slClose',t:'Tirar da tela',d:'<b>FECHAR</b> tira o slide ou a mídia da tela. A música do Fundo não para.'}
 ];
 const ESPELHAR=[
@@ -134,7 +138,7 @@ function palcoCtx(){
   const app=document.getElementById('pe-app');
   if(app&&app.classList.contains('pe-open'))return ['espelhar',ESPELHAR,'Espelhar'];
   const b=document.body.classList;
-  if(b.contains('tab-slide'))return ['slide',SLIDE,'Slide'];
+  if(b.contains('tab-slide'))return ['slide',SLIDE,'Projeção'];
   if(b.contains('tab-prog'))return ['prog',null,'Programação'];
   return ['fundo',FUNDO,'Fundo'];
 }

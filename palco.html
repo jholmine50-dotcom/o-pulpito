@@ -478,8 +478,8 @@ body.pe-cell{background:transparent!important}
     <button class="ts-tab active" id="tab-fundo" role="tab" data-tab="fundo" aria-selected="true" aria-controls="panel-fundo" type="button" title="Fundo · música (Alt+1)">
       <svg class="ts-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span class="ts-label">Fundo</span><span class="ts-meta" id="tsFundoMeta">parado</span><span class="ts-eq" aria-hidden="true"><i></i><i></i><i></i></span>
     </button>
-    <button class="ts-tab" id="tab-slide" role="tab" data-tab="slide" aria-selected="false" aria-controls="panel-slide" type="button" title="Slide · Canva (Alt+2)">
-      <svg class="ts-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span class="ts-label">Slide</span><span class="ts-meta" id="tsSlideMeta">vazio</span><span class="ts-live" aria-hidden="true"></span>
+    <button class="ts-tab" id="tab-slide" role="tab" data-tab="slide" aria-selected="false" aria-controls="panel-slide" type="button" title="Projeção · Canva, vídeos e o que vai no telão (Alt+2)">
+      <svg class="ts-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span class="ts-label">Projeção</span><span class="ts-meta" id="tsSlideMeta">vazio</span><span class="ts-live" aria-hidden="true"></span>
     </button>
     <button class="ts-tab" id="tab-prog" role="tab" data-tab="prog" aria-selected="false" aria-controls="panel-prog" type="button" title="Programação (Alt+3)">
       <svg class="ts-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="ts-label">Programação</span><span class="ts-meta" id="tsProgMeta">—</span><span class="ts-pdot" aria-hidden="true"></span>
@@ -494,7 +494,7 @@ body.pe-cell{background:transparent!important}
 
 <section class="slide-panel" id="panel-slide" role="tabpanel" aria-labelledby="tab-slide">
   <div class="sl-bar">
-    <input class="sl-url" id="slUrl" placeholder="Cole o link do Canva…" spellcheck="false" autocomplete="off" aria-label="Link da apresentação do Canva">
+    <input class="sl-url" id="slUrl" placeholder="Cole o link do Canva ou do YouTube…" spellcheck="false" autocomplete="off" aria-label="Link do Canva ou do YouTube">
     <button class="sl-btn primary" id="slOpen" type="button">ABRIR</button>
     <div class="sl-sep"></div>
     <div class="sl-nav">
@@ -1880,6 +1880,7 @@ function renderLaser(){
   const sig=on?(+S.laser.x.toFixed(4)+'|'+(+S.laser.y.toFixed(4))):'';
   const moved=sig!==laserSig;
   laserSig=sig;
+  if(moved&&role==='palco'&&window.PFProg&&PFProg.pjLaser)PFProg.pjLaser(on?{on:true,x:S.laser.x,y:S.laser.y}:{on:false});
   if(on){
     if(!laserRaf)laserRaf=requestAnimationFrame(()=>{
       laserRaf=0;
@@ -1931,7 +1932,7 @@ function renderCanva(){
     app.style.paddingTop=(!on||role==='palco')?'':'25vh';
     app.style.paddingBottom=wantPad?'20vh':'';
   }
-  if(on&&!cvWasOn&&role==='palco'){if(typeof peToggle==='function')peToggle(false);if(window.PFProg)PFProg.closeMedia();v2SetTab('slide')}
+  if(on&&!cvWasOn&&role==='palco'){if(typeof peToggle==='function')peToggle(false);if(window.PFProg)PFProg.closeMedia(true);if(!(window.PFProg&&PFProg.pjOn&&PFProg.pjOn()))v2SetTab('slide')}
   if(!on&&cvWasOn&&role==='palco')v2ExitFull();
   cvWasOn=on;
   v2RenderBar(cs,on);
@@ -1987,6 +1988,7 @@ function v2RenderBar(cs,on){
   ['slFull','slClose'].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=!(on||mOn)});
   const pv=document.getElementById('slPrev');if(pv&&on)pv.disabled=(cs.page||1)<=1;
   const u=document.getElementById('slUrl');if(u&&document.activeElement!==u)u.value=on?cs.url:'';
+  if(window.PFProg&&PFProg.pjSync)PFProg.pjSync();
 }
 function v2EnterFull(){
   if(!canvaState().url&&!document.body.classList.contains('pf-media-on'))return;
@@ -2022,7 +2024,9 @@ function v2Tick(){
     }
     const cs=canvaState(),st=document.getElementById('tab-slide'),sm=document.getElementById('tsSlideMeta');
     if(st)st.classList.toggle('live',!!cs.url);
-    if(sm)sm.textContent=cs.url?('slide '+Math.max(1,cs.page||1)):'vazio';
+    const mo=document.body.classList.contains('pf-media-on'),pjo=!!(window.PFProg&&PFProg.pjOn&&PFProg.pjOn());
+    if(st)st.classList.toggle('live',!!cs.url||mo);
+    if(sm)sm.textContent=(mo?'mídia':cs.url?('slide '+Math.max(1,cs.page||1)):'vazio')+(pjo?' · telão':'');
     const d=document.getElementById('tsNetDot'),tx=document.getElementById('tsNetTxt');
     if(d)d.className='ts-dot'+(netState==='ready'?' on':netState==='connecting'?'':' bad');
     if(tx)tx.textContent=netState==='ready'?'online':netState==='connecting'?'conectando…':'reconectando…';
@@ -2049,6 +2053,7 @@ function v2Init(){
   const u=document.getElementById('slUrl'),ob=document.getElementById('slOpen');
   if(ob)ob.onclick=()=>{
     if(!u.value.trim()){u.focus();toast('cole o link do Canva');return}
+    if(window.PFProg&&PFProg.showUrl&&PFProg.showUrl(u.value.trim())){u.value='';return}
     ob.disabled=true;ob.textContent='ABRINDO…';
     canvaResolve(u.value).then(url=>{
       S.canva={url:url,page:1};commit(['canva'],true);render();toast('apresentação aberta');
@@ -2080,7 +2085,10 @@ function v2Init(){
     setTab:v2SetTab,toast,
     isDucked:()=>typeof ducked!=='undefined'&&!!ducked,
     refreshBar:()=>{const cs=canvaState();v2RenderBar(cs,!!cs.url)},
-    openCanva:raw=>canvaResolve(raw).then(url=>{S.canva={url:url,page:1};commit(['canva'],true);render();v2SetTab('slide')})
+    openCanva:raw=>canvaResolve(raw).then(url=>{S.canva={url:url,page:1};commit(['canva'],true);render();if(!(window.PFProg&&PFProg.pjOn&&PFProg.pjOn()))v2SetTab('slide')}),
+    canvaState:()=>canvaState(),
+    laserState:()=>S.laser&&S.laser.on?{on:true,x:S.laser.x,y:S.laser.y}:{on:false},
+    canvaNav:d=>canvaNav(d),canvaClose:()=>canvaClose()
   };
 }
 //__CANVA_END__

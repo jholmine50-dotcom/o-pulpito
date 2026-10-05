@@ -4,7 +4,7 @@
 const C=window.PFCore;
 const $=id=>document.getElementById(id);
 let sess=null,P=null,cfg=null,editing=null,lastLive=null,client=null,comments={v:1,list:[],del:[]},pubTimer=0,lastRows='';
-const DEF_CFG={acao:'perguntar',aviso:5,rolar:true,duck:true,lastDur:30,perguntarFim:true};
+const DEF_CFG={acao:'auto',aviso:5,rolar:true,duck:true,lastDur:30,perguntarFim:true};
 let lastSave=0;
 const K=()=> 'pf.prog.'+sess.slug, KC=()=> 'pf.cfg.'+sess.slug, KL=()=> 'pf.live.'+sess.slug;
 
@@ -111,7 +111,7 @@ function mount(){
           <h3>ANEXOS <span id="pgLibN">0</span></h3>
           <div id="pgLib" class="pg-lib-list"></div>
           <div class="pg-drophint">Arraste arquivos para qualquer lugar desta aba, ou digite <b>@</b> no texto de um momento.</div>
-          <div class="pg-lib-add"><button class="pg-btn sm" id="pgAddLink" type="button">+ LINK DO CANVA</button><button class="pg-btn sm" id="pgAddText" type="button">+ TEXTO</button></div>
+          <div class="pg-lib-add"><button class="pg-btn sm" id="pgAddLink" type="button">+ CANVA / YOUTUBE</button><button class="pg-btn sm" id="pgAddText" type="button">+ TEXTO</button></div>
         </section>
         <section class="pg-box" id="pgPubBox" hidden>
           <h3>PUBLICADO</h3><div id="pgPubInfo"></div>
@@ -254,12 +254,25 @@ function tick(force){
 }
 /* ---------------- relógio do momento atual + "Acabou?" ---------------- */
 const mmss=sec=>{sec=Math.max(0,Math.round(sec));const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),x=sec%60;return (h?h+':'+C.pad(m):m)+':'+C.pad(x)};
+const falta=sec=>{sec=Math.max(0,Math.round(sec));if(sec<60)return sec+' s';const m=Math.ceil(sec/60);return m<60?m+' min':Math.floor(m/60)+'h'+(m%60?' '+C.pad(m%60):'')};
 const nowSec=()=>{const d=new Date();return d.getHours()*3600+d.getMinutes()*60+d.getSeconds()+d.getMilliseconds()/1000};
 function curState(){return C.compute(P.items,{aviso:cfg.aviso,lastDur:cfg.lastDur,data:P.data})}
 function renderClock(st){
   const box=$('pgClock');if(!box)return;
   const live=st.dayDiff===0?st.live:null;
-  if(!live){box.hidden=true;box._id=null;return}
+  renderMini(st);
+  if(!live){
+    const items=ordered().filter(i=>C.toMin(i.hora)!=null&&i.estado!=='ignorado');
+    if(!items.length){box.hidden=true;box._id=null;return}
+    box.hidden=false;box.classList.remove('over','soon');box.style.setProperty('--c','#64748b');
+    const nx=st.dayDiff===0&&st.next,key='idle|'+(nx?nx.id+nx.hora:'')+st.dayDiff;
+    if(box._id!==key){box._id=key;
+      box.innerHTML=`<div class="pg-ck-l"><small>RELÓGIO DO MOMENTO</small><b>${nx?'Próximo: '+C.esc(nx.titulo||C.tipo(nx.tipo).label):st.dayDiff>0?'O culto ainda não chegou':st.dayDiff<0?'Esta programação já aconteceu':'Nenhum momento no ar'}</b>
+        <span class="pg-ck-plan">${nx?'começa às '+C.esc(nx.hora):st.dayDiff>0?'daqui a '+st.dayDiff+' dia'+(st.dayDiff>1?'s':''):'o relógio liga sozinho quando um momento começar'}</span></div>
+        <div class="pg-ck-mid"><span class="pg-ck-time idle" data-next="${nx?C.toMin(nx.hora):''}">${nx?'':'--:--'}</span><span class="pg-ck-sub">${nx?'para começar':''}</span></div><div class="pg-ck-b"></div>`}
+    const t=box.querySelector('.pg-ck-time[data-next]');if(t&&t.dataset.next)t.textContent=falta(+t.dataset.next*60-nowSec());
+    return;
+  }
   const s=st.map[live.id],t=C.tipo(live.tipo);
   box.hidden=false;box.style.setProperty('--c',t.color);
   if(box._id!==live.id+'|'+s.start+'|'+s.end){
@@ -274,14 +287,31 @@ function renderClock(st){
   tickClock();
 }
 function tickClock(){
-  const box=$('pgClock');if(!box||box.hidden)return;
-  const st=curState(),live=st.live;if(!live||st.dayDiff!==0)return;
+  const box=$('pgClock');if(!box)return;
+  const st=curState(),live=st.live;
+  renderMini(st);
+  if(!live||st.dayDiff!==0){const t=box.querySelector('.pg-ck-time[data-next]');if(t&&t.dataset.next)t.textContent=falta(+t.dataset.next*60-nowSec());return}
+  if(box.hidden)return;
   const s=st.map[live.id],ns=nowSec(),el=ns-s.start*60,tot=(s.end-s.start)*60,rest=tot-el;
   box.querySelector('.pg-ck-time').textContent=mmss(el);
   const sub=box.querySelector('.pg-ck-sub');
   sub.textContent=rest>=0?'faltam '+mmss(rest):'+'+mmss(-rest)+' além do previsto';
   box.classList.toggle('over',rest<0);box.classList.toggle('soon',rest>=0&&rest<=60);
   box.querySelector('.pg-ck-bar i').style.width=Math.min(100,el/Math.max(1,tot)*100)+'%';
+}
+/* relógio pequeno nas outras abas (Fundo e Projeção) */
+function renderMini(st){
+  let m=$('pfMini');
+  if(!m){m=document.createElement('button');m.type='button';m.id='pfMini';m.className='pf-mini';m.title='Abrir a Programação';
+    m.onclick=()=>PF.setTab('prog');document.body.appendChild(m)}
+  const live=st.dayDiff===0?st.live:null,nx=st.dayDiff===0&&!live&&st.next;
+  const show=!document.body.classList.contains('tab-prog')&&(live||(nx&&C.toMin(nx.hora)-st.now<=120));
+  m.hidden=!show;if(!show)return;
+  if(live){const s=st.map[live.id],t=C.tipo(live.tipo),el=nowSec()-s.start*60,rest=(s.end-s.start)*60-el;
+    m.style.setProperty('--c',t.color);m.classList.toggle('over',rest<0);
+    m.innerHTML=`<i></i><span class="pm-t">${C.esc(live.titulo||t.label)}</span><b>${mmss(el)}</b><span class="pm-r">${rest>=0?'faltam '+mmss(rest):'+'+mmss(-rest)}</span>`;
+  }else{m.style.setProperty('--c','#93c5fd');m.classList.remove('over');
+    m.innerHTML=`<i></i><span class="pm-t">Próximo: ${C.esc(nx.titulo||'')}</span><b>em ${falta(C.toMin(nx.hora)*60-nowSec())}</b><span class="pm-r">às ${C.esc(nx.hora)}</span>`}
 }
 /* tela "Acabou?" — só este cartão fica visível */
 let ask=null;
@@ -290,7 +320,7 @@ function askEnd(item,pendingLive){
   closeAsk();
   ask={id:item.id,pending:pendingLive};
   const slide=document.body.classList.contains('tab-slide');
-  if(slide){ // no Slide não tira a tela: só um aviso discreto
+  if(slide){ // na Projeção não tira a tela: só um aviso discreto
     const b=document.createElement('div');b.className='pg-ask-mini';b.id='pgAskMini';b.setAttribute('role','status');
     b.innerHTML=`<span>⏱ O tempo de <b>${C.esc(item.titulo||'momento')}</b> acabou</span><button type="button" class="pg-btn sm primary">RESPONDER</button>`;
     b.querySelector('button').onclick=()=>{b.remove();PF.setTab('prog');openFocus()};
@@ -486,82 +516,227 @@ const TOUR=[
   {el:'#pgList .pg-item',t:'Cada cartão é um momento',d:'A bolinha mostra o estado pelo relógio: <b style="color:#4ade80">verde</b> no ar, <b style="color:#fb923c">laranja</b> vai começar, <b style="color:#93c5fd">azul</b> agendado, <b style="color:#94a3b8">cinza</b> já foi e <b>preta</b> ignorado. Clique no cartão para editar.'},
   {el:'#pgList .pg-item .pg-grip',up:'.pg-item',t:'Arraste para mudar a ordem',d:'Segure um cartão e arraste para cima ou para baixo (no celular/tablet, segure pela alça <b>⠿</b>). Os horários se ajustam sozinhos. No teclado: <kbd>Alt</kbd> + <kbd>↑</kbd> <kbd>↓</kbd>.'},
   {el:'#pgCascade',t:'Horários automáticos',d:'Ligado, você só diz quanto tempo cada momento dura e os horários se ajustam sozinhos. Atrasou? O relógio do momento (logo abaixo do resumo) resolve.'},
-  {el:'#pgClock',t:'Relógio do momento',d:'Mostra há quanto tempo o momento atual está rodando e quanto falta. <b>TERMINOU</b> começa o próximo na hora; <b>ATRASAR…</b> dá mais tempo.'},
-  {el:'#pgSum',t:'Quando o tempo acaba',d:'Ao fim de cada momento a tela vem para cá e pergunta <b>“Acabou?”</b>: <b>Sim</b> segue; <b>Atrasar este momento</b> dá mais minutos só a ele (o culto termina na mesma hora); <b>Atrasar toda a programação</b> empurra tudo. No Slide aparece só um aviso pequeno.'},
-  {el:'#pgLibBox',t:'Anexos com @',d:'Digite <b>@</b> no texto de um momento para anexar slide, imagem, vídeo, música ou letra — ou arraste o arquivo para esta aba. O <b>▶</b> mostra no palco.'},
+  {el:'#pgClock',t:'Relógio do momento',d:'Fica sempre à vista: antes do culto conta quanto falta para o próximo momento; durante, mostra há quanto tempo o momento atual está rodando e quanto falta (nas outras abas aparece pequeno, no canto). <b>TERMINOU</b> começa o próximo na hora; <b>ATRASAR…</b> dá mais tempo.'},
+  {el:'#pgSum',t:'Quando o tempo acaba',d:'Ao fim de cada momento a tela vem para cá e pergunta <b>“Acabou?”</b>: <b>Sim</b> segue; <b>Atrasar este momento</b> dá mais minutos só a ele (o culto termina na mesma hora); <b>Atrasar toda a programação</b> empurra tudo. Na Projeção aparece só um aviso pequeno.'},
+  {el:'#pgLibBox',t:'Anexos com @',d:'Digite <b>@</b> no texto de um momento para anexar slide do Canva, <b>vídeo do YouTube</b>, imagem, vídeo, música ou letra — ou arraste o arquivo para esta aba. O <b>▶</b> mostra na Projeção.'},
+  {el:'#pgList .pg-item',t:'Vários anexos viram uma fila',d:'Quando o momento entra no ar, os anexos dele vão para a <b>Projeção</b> na ordem em que aparecem no texto. Vídeo ou música terminou? O palco pergunta <b>“Passar para o próximo?”</b>.'},
   {el:'#pgModelos',t:'Modelos prontos',d:'Comece de um culto de domingo, de oração, Santa Ceia ou casamento e ajuste o que precisar.'},
   {el:'#pgExportBtn',t:'Compartilhar',d:'Gere PDF ou imagem para mandar no grupo, ou um link que passa sozinho na tela das pessoas (com comentários, se quiser).'},
-  {el:'#tsConfig',t:'Configurações',d:'Aqui você decide se o palco abre sozinho o slide ou a música quando um momento começa.'}
+  {el:'#tsConfig',t:'Configurações',d:'Aqui você decide se o palco abre sozinho na Projeção os anexos (slide, vídeo, música) quando um momento começa — vem ligado.'}
 ];
 function startTour(){if(window.PFTour)PFTour.start('prog',TOUR,'Programação')}
 function tour(force){if(!window.PFTour)return;if(force)startTour();else PFTour.auto('prog',TOUR,'Programação',700)}
 
 /* ---------------- ação ao entrar no ar ---------------- */
 function anexosDo(it){const bn=byName();return C.mentions(it.texto).map(n=>bn[n]).filter(Boolean)}
-const PALCO=['canva','imagem','video','pdf','texto'];
+const PALCO=['canva','imagem','video','pdf','texto','youtube'];
 function onLive(it){
-  const an=anexosDo(it);
-  toast('NO AR: '+(it.titulo||'item'));
+  const an=anexosDo(it).filter(a=>a.kind!=='link');
+  toast('NO AR: '+(it.titulo||'momento'));
   if(cfg.acao==='nada'||!an.length)return;
-  if(cfg.acao==='auto'){
-    const vis=an.find(a=>PALCO.includes(a.kind)),mus=an.find(a=>a.kind==='musica');
-    if(vis)use(vis);if(mus)use(mus);
-    return;
-  }
+  if(cfg.acao==='auto'){filaFrom(an,it.id,0);return}
   // perguntar
   let b=$('pgAsk');if(b)b.remove();
-  b=document.createElement('div');b.id='pgAsk';b.className='pg-ask';b.setAttribute('role','alertdialog');b.setAttribute('aria-label','Item no ar');
+  b=document.createElement('div');b.id='pgAsk';b.className='pg-ask';b.setAttribute('role','alertdialog');b.setAttribute('aria-label','Momento no ar');
   b.innerHTML=`<span class="pg-dot st-noar"></span><div class="pg-ask-t"><small>NO AR AGORA</small><b>${C.esc(it.titulo)}</b></div>
-    ${an.slice(0,3).map(a=>`<button type="button" class="pg-btn sm primary" data-use="${a.id}">${C.icon(a.kind)} USAR @${C.esc(a.nome)}</button>`).join('')}
+    <button type="button" class="pg-btn sm primary" data-all>▶ USAR ${an.length>1?'OS '+an.length+' ANEXOS (FILA)':'@'+C.esc(an[0].nome)}</button>
     <button type="button" class="pg-btn sm" data-close>AGORA NÃO</button>`;
   document.body.appendChild(b);
-  b.addEventListener('click',e=>{const u=e.target.closest('[data-use]');if(u)use(P.anexos[u.dataset.use]);if(u||e.target.closest('[data-close]'))b.remove()});
+  b.addEventListener('click',e=>{if(e.target.closest('[data-all]'))filaFrom(an,it.id,0);if(e.target.closest('[data-all],[data-close]'))b.remove()});
   setTimeout(()=>{if(b.isConnected)b.remove()},60000);
 }
 
-/* ---------------- usar anexo no palco ---------------- */
-async function use(a){
+/* ---------------- janela de PROJEÇÃO (projecao.html, mesmo computador) ---------------- */
+const PJ_CH='pulpito-projecao';
+const pj={bc:null,last:0,media:null,st:null,was:false,laserT:0};
+function pjOn(){return Date.now()-pj.last<3500}
+function pjStart(){if(!pj.bc&&!pj.started){pj.started=true;pjInit()}mountPjBar()}
+function pjInit(){
+  try{pj.bc=new BroadcastChannel(PJ_CH);pj.bc.onmessage=e=>pjMsg(e.data||{})}catch(e){}
+  setInterval(pjTick,1000);
+  // YouTube tocando no próprio palco (sem janela de projeção): saber quando acaba
+  window.addEventListener('message',e=>{
+    if(!/^https:\/\/www\.youtube(-nocookie)?\.com$/.test(e.origin))return;
+    let d;try{d=typeof e.data==='string'?JSON.parse(e.data):e.data}catch(x){return}
+    const f=document.querySelector('#pfMedia iframe.yt');if(!d||!f||e.source!==f.contentWindow)return;
+    const st=d.event==='onStateChange'?d.info:d.info&&d.info.playerState;
+    if(d.info&&typeof d.info.currentTime==='number')pj.ytLocal={cur:d.info.currentTime,dur:d.info.duration||(pj.ytLocal&&pj.ytLocal.dur)||0,playing:st===1};
+    if(st===0)onItemEnded(f.dataset.id);
+  });
+}
+function ytCmdLocal(func,args){const f=document.querySelector('#pfMedia iframe.yt');if(f&&f.contentWindow)f.contentWindow.postMessage(JSON.stringify({event:'command',func,args:args||[]}),'*')}
+function pjMsg(m){
+  if(m.t==='hello'||m.t==='ping'){
+    const was=pjOn();pj.last=Date.now();pj.st=m.st||null;
+    if(m.t==='hello'||!was){pjSend();if(m.t==='hello')toast('Janela de projeção conectada')}
+    if(!was)pjChanged();
+    renderPjStatus();
+  }else if(m.t==='ended'){onItemEnded(m.id)}
+  else if(m.t==='nav'){if(PF.canvaNav&&PF.canvaState&&PF.canvaState().url)PF.canvaNav(m.d>0?1:-1)}
+  else if(m.t==='bye'){pj.last=0;pjChanged()}
+}
+function pjTick(){if(pj.was!==pjOn())pjChanged();renderPjStatus()}
+function pjChanged(){pj.was=pjOn();renderPjBar();const a=pj.media&&P&&P.anexos[pj.media.id];if(a&&!$('pfMedia').hidden)renderMonitor(a)}
+function pjState(){
+  const cs=window.PF&&PF.canvaState?PF.canvaState():null;
+  return {t:'state',slug:sess&&sess.slug,canva:cs&&cs.url?{url:cs.url,page:cs.page||1}:null,media:pj.media,laser:window.PF&&PF.laserState?PF.laserState():null};
+}
+function pjSend(){try{pj.bc&&pj.bc.postMessage(pjState())}catch(e){}}
+function pjSync(){clearTimeout(pjSync.t);pjSync.t=setTimeout(pjSend,30)}
+function pjLaser(l){try{pj.bc&&pj.bc.postMessage({t:'laser',laser:l})}catch(e){}}
+function pjCmd(c){try{pj.bc&&pj.bc.postMessage({t:'cmd',c})}catch(e){}}
+function openProjWindow(){
+  const w=window.open('projecao.html','pulpito-projecao','popup=yes,width=1280,height=720');
+  if(!w)toast('O navegador bloqueou a janela — permita pop-ups para este site');
+  else toast('Arraste a janela para o telão e clique nela uma vez (tela cheia)');
+}
+function projUrl(){return location.href.replace(/[#?].*$/,'').replace(/[^/]*$/,'')+'projecao.html'}
+
+/* ---------------- fila de anexos do momento ---------------- */
+let fila={mid:null,ids:[],idx:-1,music:null,visual:null,ask:null};
+function filaFrom(list,mid,start){
+  fila={mid:mid||null,ids:list.map(a=>a.id),idx:-1,music:null,visual:null,ask:null};
+  goFila(start||0,true);
+}
+function goFila(i,pair){
+  if(i<0||i>=fila.ids.length)return;
+  fila.idx=i;fila.ask=null;closePjAsk();
+  const a=P.anexos[fila.ids[i]];if(!a)return;
+  applyAnexo(a);
+  // música + o próximo visual juntos (ex.: música e a letra dela)
+  if(pair&&a.kind==='musica'){const nx=P.anexos[fila.ids[i+1]];if(nx&&nx.kind!=='musica'){fila.idx=i+1;applyAnexo(nx)}}
+  renderPjBar();
+}
+function applyAnexo(a){
+  if(a.kind==='musica'){fila.music=a.id;playAudio(a);return}
+  if(a.kind==='link'){window.open(a.url,'_blank','noopener');return}
+  fila.visual=a.id;
+  if(a.kind==='canva'){closeMedia(true);PF.openCanva(a.url).catch(e=>toast(String(e.message||e)));return}
+  if(PALCO.includes(a.kind)){showMedia(a);return}
+  urlOf(a).then(u=>window.open(u,'_blank')).catch(e=>toast(String(e.message||e)));
+}
+/* um vídeo/música/YouTube terminou */
+function onItemEnded(id){
+  if(!id||(id!==fila.music&&id!==fila.visual))return;
+  const k=fila.ids.indexOf(id),a=P.anexos[id];
+  if(k>=0&&k<fila.ids.length-1){fila.ask={id};renderPjBar();showPjAsk(a)}
+  else toast((a?'@'+a.nome:'Arquivo')+' terminou'+(fila.ids.length>1?' — fim da fila':''));
+}
+function showPjAsk(a){
+  closePjAsk();
+  if(document.body.classList.contains('tab-slide'))return; // na aba Projeção a pergunta já aparece na barra
+  const b=document.createElement('div');b.id='pjAskMini';b.className='pg-ask-mini pj';b.setAttribute('role','alertdialog');
+  b.innerHTML=`<span>⏹ <b>@${C.esc(a?a.nome:'')}</b> terminou · passar para o próximo?</span><button type="button" class="pg-btn sm primary" data-pj="sim">SIM</button><button type="button" class="pg-btn sm" data-pj="nao">NÃO</button>`;
+  b.onclick=e=>{const x=e.target.closest('[data-pj]');if(x)pjAnswer(x.dataset.pj)};
+  document.body.appendChild(b);
+}
+function closePjAsk(){const b=$('pjAskMini');if(b)b.remove()}
+function pjAnswer(v){
+  const ask=fila.ask;fila.ask=null;closePjAsk();
+  if(v==='sim')goFila(fila.ids.indexOf(ask?ask.id:fila.ids[fila.idx])+1,true);
+  else if(v==='repetir'&&ask){const a=P.anexos[ask.id];if(a&&a.kind==='musica'){const au=$('pgAudio');au.currentTime=0;au.play().catch(()=>{})}else if(pjOn())pjCmd('restart');else localCmd('restart')}
+  renderPjBar();
+}
+
+function localCmd(c){
+  const vd=document.querySelector('#pfMedia video');
+  if(vd){if(c==='restart'){vd.currentTime=0;vd.play().catch(()=>{})}else if(vd.paused)vd.play().catch(()=>{});else vd.pause();return}
+  if(document.querySelector('#pfMedia iframe.yt')){if(c==='restart'){ytCmdLocal('seekTo',[0,true]);ytCmdLocal('playVideo')}else ytCmdLocal(pj.ytLocal&&pj.ytLocal.playing?'pauseVideo':'playVideo')}
+}
+/* ---------------- barra da fila / projeção (aba Projeção do palco) ---------------- */
+function mountPjBar(){
+  const panel=$('panel-slide');if(!panel||$('pjBar'))return;
+  const bar=document.createElement('div');bar.className='pj-bar';bar.id='pjBar';
+  panel.appendChild(bar);
+  bar.addEventListener('click',e=>{
+    const b=e.target.closest('[data-pj]');if(!b)return;const v=b.dataset.pj;
+    if(v==='abrir')return openProjWindow();
+    if(v==='copiar'){navigator.clipboard.writeText(projUrl()).then(()=>toast('Link da projeção copiado'),()=>{});return}
+    if(v==='ir')return goFila(+b.dataset.i,false);
+    if(v==='prev')return goFila(fila.idx-1,false);
+    if(v==='next')return goFila(fila.idx+1,true);
+    if(v==='toggle'||v==='restart'){if(pjOn())pjCmd(v);else localCmd(v);return}
+    pjAnswer(v);
+  });
+  renderPjBar();
+}
+function renderPjBar(){
+  const bar=$('pjBar');if(!bar)return;
+  const on=pjOn(),it=fila.mid&&P&&P.items.find(i=>i.id===fila.mid);
+  const chips=fila.ids.map((id,k)=>{const a=P&&P.anexos[id];if(!a)return '';const cur=id===fila.visual||id===fila.music;
+    return `<button type="button" class="pj-chip k-${a.kind}${cur?' on':''}${k===fila.idx?' at':''}" data-pj="ir" data-i="${k}" title="${C.esc(C.KIND_LABEL[a.kind]||'')}">${C.icon(a.kind)}@${C.esc(a.nome)}</button>`}).join('');
+  const ask=fila.ask&&P&&P.anexos[fila.ask.id];
+  const cur=fila.visual&&(pj.media&&pj.media.id===fila.visual?pj.media:P&&P.anexos[fila.visual]),timed=cur&&(cur.kind==='video'||cur.kind==='youtube');
+  bar.innerHTML=`<div class="pj-st">${on?`<span class="pj-dot on"></span><b>Projeção conectada</b>`:`<button type="button" class="sl-btn primary" data-pj="abrir" id="pjOpen" title="Abre só a tela de projeção, sem botões, para colocar no telão">JANELA DE PROJEÇÃO ↗</button><button type="button" class="sl-btn" data-pj="copiar" aria-label="Copiar link da janela de projeção" title="Copiar o link">⧉</button>`}</div>
+    <div class="pj-fila" id="pjFila">${ask?`<div class="pj-ask" role="alertdialog"><span>⏹ <b>@${C.esc(ask.nome)}</b> terminou. Passar para o próximo?</span><button type="button" class="sl-btn primary" data-pj="sim">SIM ▸</button><button type="button" class="sl-btn" data-pj="repetir">REPETIR</button><button type="button" class="sl-btn" data-pj="nao">NÃO</button></div>`
+      :fila.ids.length?`<small>FILA${it?' · '+C.esc(it.titulo||''):''}</small><button type="button" class="sl-btn" data-pj="prev" aria-label="Anterior" ${fila.idx<=0?'disabled':''}>◀</button><div class="pj-chips">${chips}</div><button type="button" class="sl-btn" data-pj="next" aria-label="Próximo" ${fila.idx>=fila.ids.length-1?'disabled':''}>▶</button>`
+      :`<small class="pj-empty">Os anexos do momento no ar aparecem aqui, em fila.</small>`}</div>
+    <div class="pj-ctl">${timed?`<button type="button" class="sl-btn" data-pj="toggle" aria-label="Tocar ou pausar">⏯</button><button type="button" class="sl-btn" data-pj="restart" aria-label="Voltar ao começo">⟲</button><span class="pj-time" id="pjTime"></span>`:''}</div>`;
+  renderPjStatus();
+}
+function renderPjStatus(){
+  const t=$('pjTime');if(!t)return;
+  const st=pj.st;if(pjOn()&&st&&st.dur){t.textContent=mmss(st.cur)+' / '+mmss(st.dur)+(st.playing?'':' ⏸');return}
+  const v=document.querySelector('#pfMedia video'),y=document.querySelector('#pfMedia iframe.yt')&&pj.ytLocal;
+  t.textContent=v&&v.duration?mmss(v.currentTime)+' / '+mmss(v.duration)+(v.paused?' ⏸':''):y&&y.dur?mmss(y.cur)+' / '+mmss(y.dur)+(y.playing?'':' ⏸'):'';
+}
+
+/* ---------------- mostrar no palco / na projeção ---------------- */
+async function use(a,item){
   if(!a)return;
-  try{
-    if(a.kind==='canva'){await PF.openCanva(a.url);closeMedia(true);return}
-    if(a.kind==='link'){window.open(a.url,'_blank','noopener');return}
-    if(a.kind==='musica'){playAudio(a);return}
-    if(PALCO.includes(a.kind)){showMedia(a);return}
-    const u=await urlOf(a);window.open(u,'_blank');
-  }catch(e){toast(String(e.message||e))}
+  const list=item?anexosDo(item).filter(x=>x.kind!=='link'):[];
+  if(item&&list.includes(a))filaFrom(list,item.id,list.indexOf(a));
+  else filaFrom([a],null,0);
 }
 async function showMedia(a){
-  const m=$('pfMedia');if(!m)return;
-  let inner='';
-  if(a.kind==='texto')inner=`<div class="pf-media-text">${C.esc(a.texto||'').replace(/\n/g,'<br>')}</div>`;
-  else{
-    const u=await urlOf(a);
-    if(a.kind==='imagem')inner=`<img src="${u}" alt="${C.esc(a.nome)}">`;
-    else if(a.kind==='video')inner=`<video src="${u}" controls autoplay playsinline></video>`;
-    else if(a.kind==='pdf')inner=`<iframe src="${u}#toolbar=0&view=Fit" title="${C.esc(a.nome)}"></iframe>`;
-  }
-  m.innerHTML=inner+`<span class="pf-media-tag">${C.icon(a.kind)}@${C.esc(a.nome)}</span><button type="button" class="pf-media-x" aria-label="Fechar mídia">×</button>`;
-  m.querySelector('.pf-media-x').onclick=()=>closeMedia();
-  m.hidden=false;document.body.classList.add('pf-media-on');
-  PF.setTab('slide');PF.refreshBar&&PF.refreshBar();
+  pj.media={id:a.id,kind:a.kind,nome:a.nome,url:a.url||null,texto:a.kind==='texto'?(a.texto||''):null,yt:a.kind==='youtube'?C.ytId(a.url):null};
+  pjSend();
+  await renderMonitor(a);
+  if(!pjOn())PF.setTab('slide'); // sem janela de projeção, o palco mostra
+  PF.refreshBar&&PF.refreshBar();
   const pg=$('slPage');if(pg)pg.textContent='@'+a.nome;
 }
+async function renderMonitor(a){
+  const m=$('pfMedia');if(!m)return;
+  const old=m.querySelector('video');if(old)old.pause();
+  let inner='';
+  try{
+    if(a.kind==='texto')inner=`<div class="pf-media-text">${C.esc(a.texto||'').replace(/\n/g,'<br>')}</div>`;
+    else if(pjOn()&&(a.kind==='video'||a.kind==='youtube'||a.kind==='pdf'))
+      inner=`<div class="pf-mon">${C.icon(a.kind)}<b>@${C.esc(a.nome)}</b><span>passando na janela de projeção</span><small>use ⏯ e ⟲ na barra de baixo</small></div>`;
+    else if(a.kind==='youtube')inner=`<iframe class="yt" data-id="${a.id}" src="${C.ytEmbed(C.ytId(a.url),{origin:location.origin})}" title="${C.esc(a.nome)}" allow="autoplay; encrypted-media; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+    else{
+      const u=await urlOf(a);
+      if(a.kind==='imagem')inner=`<img src="${u}" alt="${C.esc(a.nome)}">`;
+      else if(a.kind==='video')inner=`<video src="${u}" controls autoplay playsinline></video>`;
+      else if(a.kind==='pdf')inner=`<iframe src="${u}#toolbar=0&view=Fit" title="${C.esc(a.nome)}"></iframe>`;
+    }
+  }catch(e){inner=`<div class="pf-mon"><b>${C.esc(e.message||e)}</b></div>`}
+  m.innerHTML=inner+`<span class="pf-media-tag">${C.icon(a.kind)}@${C.esc(a.nome)}${pjOn()?' · na projeção':''}</span><button type="button" class="pf-media-x" aria-label="Fechar mídia">×</button>`;
+  m.querySelector('.pf-media-x').onclick=()=>closeMedia();
+  const v=m.querySelector('video');if(v)v.addEventListener('ended',()=>onItemEnded(a.id));
+  const yf=m.querySelector('iframe.yt');if(yf)yf.addEventListener('load',()=>{let n=0;const go=()=>{if(n++>15||!yf.isConnected)return;yf.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),'*');setTimeout(go,500)};go()});
+  m.hidden=false;document.body.classList.add('pf-media-on');
+}
 function closeMedia(silent){
-  const m=$('pfMedia');if(!m||m.hidden)return;
+  const m=$('pfMedia');
+  if(pj.media){pj.media=null;pjSend()}
+  if(fila.visual&&silent!==true)fila.visual=null;
+  if(!m||m.hidden){renderPjBar();return}
   const v=m.querySelector('video');if(v)v.pause();
   m.hidden=true;m.innerHTML='';document.body.classList.remove('pf-media-on');
-  PF.refreshBar&&PF.refreshBar();
+  PF.refreshBar&&PF.refreshBar();renderPjBar();
 }
 let pgDucked=false;
 async function playAudio(a){
   const au=$('pgAudio');
-  au.src=await urlOf(a);$('pgPlName').textContent='@'+a.nome;$('pgPlayer').hidden=false;
+  au.src=await urlOf(a);$('pgPlName').textContent='@'+a.nome;$('pgPlayer').hidden=false;au.dataset.id=a.id;
   if(cfg.duck&&typeof window.setDuck==='function'&&!(PF.isDucked&&PF.isDucked())){window.setDuck(true);pgDucked=true}
   try{await au.play()}catch(e){toast('Clique em ▶ no player para tocar')}
 }
 function stopAudio(){
-  const au=$('pgAudio');au.pause();au.removeAttribute('src');au.load();$('pgPlayer').hidden=true;
-  if(pgDucked&&typeof window.setDuck==='function'){window.setDuck(false)}pgDucked=false;
+  const au=$('pgAudio');au.pause();au.removeAttribute('src');au.load();$('pgPlayer').hidden=true;fila.music=null;
+  if(pgDucked&&typeof window.setDuck==='function'){window.setDuck(false)}pgDucked=false;renderPjBar();
 }
 
 /* ---------------- edição ---------------- */
@@ -664,7 +839,7 @@ function acCheck(ta){
   ac={ta,start:ta.selectionStart-m[2].length-1,sel:0,opts:[
     ...arr.map(a=>({t:'a',a})),
     {t:'file',label:'Anexar arquivo (slide, imagem, vídeo, música)…'},
-    {t:'link',label:'Link do Canva…'},
+    {t:'link',label:'Link do Canva ou do YouTube…'},
     {t:'text',label:'Texto (letra, versículo)…'}
   ]};
   drawAc();
@@ -724,11 +899,12 @@ async function addFile(file,dropName){
   return a;
 }
 async function addLink(){
-  const r=await dialog(`<h3>${C.icon('canva')} Link do Canva</h3><label class="pg-lbl">LINK</label><input name="url" placeholder="https://www.canva.com/design/…" required>${nameField('Slide')}`,
+  const r=await dialog(`<h3>${C.icon('canva')} Link do Canva ou do YouTube</h3><label class="pg-lbl">LINK</label><input name="url" placeholder="https://www.canva.com/design/…  ou  https://youtu.be/…" required>${nameField('Slide','Sem espaços. Ex.: SlidePr, VideoAbertura. O YouTube abre limpo, sem sugestões.')}`,
     f=>({url:f.url.value.trim(),nome:uniqueName(f.nome.value)}));
   if(!r||!r.url)return null;
   const url=/^https?:\/\//i.test(r.url)?r.url:'https://'+r.url;
-  const a={id:C.uid(8),nome:r.nome,kind:C.kind('','',url),url};
+  const kind=C.kind('','',url);
+  const a={id:C.uid(8),nome:(kind==='youtube'&&r.nome.startsWith('Slide'))?uniqueName('Video'):r.nome,kind,url};
   P.anexos[a.id]=a;save();renderLib();return a;
 }
 async function addText(){
@@ -923,11 +1099,11 @@ function openConfig(){
   d.innerHTML=`<div class="pg-modal-card wide">
     <h3>Configurações</h3>
     <div class="cf-sec"><h4>PROGRAMAÇÃO</h4>
-      <label class="cf-row"><span>Quando um item entrar <b>no ar</b><small>o que o palco faz com o slide, imagem, vídeo, texto ou música anexados</small></span>
+      <label class="cf-row"><span>Quando um item entrar <b>no ar</b><small>o que o palco faz com os anexos (slide, YouTube, imagem, vídeo, texto, música): no automático eles vão em fila para a Projeção</small></span>
         <select id="cfAcao"><option value="nada">Não fazer nada</option><option value="perguntar">Mostrar aviso com botão "usar"</option><option value="auto">Usar automaticamente</option></select></label>
       <label class="cf-row"><span>Bolinha laranja (<b>prestes a acontecer</b>)<small>quantos minutos antes</small></span><input type="number" id="cfAviso" min="1" max="60"></label>
       <label class="cf-row"><span>Duração do último item<small>quando ele não tiver duração própria (min)</small></span><input type="number" id="cfLast" min="5" max="600"></label>
-      <label class="cf-row"><span>Perguntar <b>"Acabou?"</b> quando o tempo de um momento terminar<small>a tela vai para a Programação (menos se estiver no Slide) e pergunta se pode seguir ou atrasar</small></span><input type="checkbox" id="cfFim"></label>
+      <label class="cf-row"><span>Perguntar <b>"Acabou?"</b> quando o tempo de um momento terminar<small>a tela vai para a Programação (menos se estiver na Projeção) e pergunta se pode seguir ou atrasar</small></span><input type="checkbox" id="cfFim"></label>
       <label class="cf-row"><span>Rolar sozinho até o momento no ar</span><input type="checkbox" id="cfRolar"></label>
       <label class="cf-row"><span>Abaixar a música do Fundo ao tocar música anexada</span><input type="checkbox" id="cfDuck"></label>
     </div>
@@ -976,7 +1152,7 @@ function wire(){
   $('pgAttach').onclick=async()=>{for(const f of await pickFiles())await addFile(f)};
   $('pgAddLink').onclick=addLink;$('pgAddText').onclick=addText;
   $('pgPlStop').onclick=stopAudio;
-  $('pgAudio').addEventListener('ended',()=>{if(pgDucked&&typeof window.setDuck==='function')window.setDuck(false);pgDucked=false});
+  $('pgAudio').addEventListener('ended',()=>{if(pgDucked&&typeof window.setDuck==='function')window.setDuck(false);pgDucked=false;onItemEnded($('pgAudio').dataset.id)});
   const eb=$('pgExportBtn'),em=$('pgExportMenu');
   eb.onclick=e=>{e.stopPropagation();em.hidden=!em.hidden;eb.setAttribute('aria-expanded',String(!em.hidden))};
   document.addEventListener('click',e=>{if(!em.hidden&&!e.target.closest('.pg-menu-wrap')){em.hidden=true;eb.setAttribute('aria-expanded','false')}});
@@ -995,7 +1171,7 @@ function wire(){
     if(e.target.closest('[data-mod]')){openModelos();return}
     if(e.target.closest('[data-add]')){addItem();return}
     const chip=e.target.closest('.pf-chip[data-anexo]');if(chip){e.stopPropagation();const a=P.anexos[chip.dataset.anexo];if(a)preview(a).then(()=>{});return}
-    const u=e.target.closest('[data-use]');if(u){use(P.anexos[u.dataset.use]);return}
+    const u=e.target.closest('[data-use]');if(u){const row=u.closest('.pg-item');use(P.anexos[u.dataset.use],row&&P.items.find(i=>i.id===row.dataset.id));return}
     const cp=e.target.closest('[data-copy]');if(cp){navigator.clipboard.writeText(cp.dataset.copy).then(()=>toast('Link copiado'),()=>{});return}
     const cd=e.target.closest('[data-cdel]');if(cd){if(!confirmar(cd))return;comments=C.mergeComments(comments,{list:[],del:[cd.dataset.cdel]});comments.list=comments.list.filter(c=>c.id!==cd.dataset.cdel);
       if(client)client.publish(C.topicComments(P.pub.id,P.pub.key),JSON.stringify(comments),true);renderComments();return}
@@ -1053,11 +1229,14 @@ async function init(s){
   if(P.pub)ensureClient();
   setInterval(()=>tick(),10000);
   setInterval(tickClock,1000);
+  pjStart();
   // o relógio da aba e os estados também mudam quando a aba é aberta
   new MutationObserver(()=>{if(document.body.classList.contains('tab-prog'))tick(true)}).observe(document.body,{attributes:true,attributeFilter:['class']});
   const cb=$('tsConfig');if(cb)cb.onclick=openConfig;
   const ch=$('tsChurch');if(ch){ch.textContent=s.nome;ch.onclick=openConfig}
 }
-window.PFProg={tour,init,closeMedia,mediaOn:()=>document.body.classList.contains('pf-media-on'),use,openConfig,_state:()=>({P,cfg,comments})};
+function showUrl(url){const id=C.ytId(url);if(!id)return false;const a={id:'yt-'+id,kind:'youtube',nome:'YouTube',url};fila={mid:null,ids:[],idx:-1,music:null,visual:a.id,ask:null};showMedia(a);renderPjBar();return true}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(pjStart,0));else setTimeout(pjStart,0);
+window.PFProg={showUrl,pjSync,pjLaser,pjOn,openProjWindow,tour,init,closeMedia,mediaOn:()=>document.body.classList.contains('pf-media-on'),use,openConfig,_state:()=>({P,cfg,comments})};
 if(window.PFAuth)PFAuth.ready.then(s=>{if(s&&document.getElementById('panel-prog'))init(s)});
 })();

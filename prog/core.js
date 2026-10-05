@@ -55,9 +55,14 @@ C.cleanName=s=>{
   const n=String(s||'').normalize('NFC').replace(/\.[a-z0-9]{1,5}$/i,'').replace(/[^\p{L}\p{N}_-]+/gu,'').slice(0,24);
   return n||'Anexo';
 };
+C.ytId=u=>{const m=String(u||'').match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/);return m?m[1]:null};
+/* player do YouTube "limpo": sem sugestões no fim, sem anotações; domínio sem cookies */
+C.ytEmbed=(id,o)=>'https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&enablejsapi=1'+(o&&o.mute?'&mute=1':'')+(o&&o.origin?'&origin='+encodeURIComponent(o.origin):'');
+C.TIMED=['video','musica','youtube'];
 C.kind=(mime,name,url)=>{
   mime=mime||'';name=(name||'').toLowerCase();
   if(url&&/canva\.(com|link)/i.test(url))return 'canva';
+  if(url&&C.ytId(url))return 'youtube';
   if(url)return 'link';
   if(mime.startsWith('image/'))return 'imagem';
   if(mime.startsWith('video/'))return 'video';
@@ -67,8 +72,9 @@ C.kind=(mime,name,url)=>{
   if(/\.(pptx?|key|odp)$/.test(name))return 'slides';
   return 'arquivo';
 };
-C.KIND_LABEL={canva:'Slide (Canva)',link:'Link',imagem:'Imagem',video:'Vídeo',musica:'Música',pdf:'PDF',texto:'Texto',slides:'Slides',arquivo:'Arquivo'};
+C.KIND_LABEL={canva:'Slide (Canva)',youtube:'YouTube',link:'Link',imagem:'Imagem',video:'Vídeo',musica:'Música',pdf:'PDF',texto:'Texto',slides:'Slides',arquivo:'Arquivo'};
 const P={
+  youtube:'<rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3z"/>',
   canva:'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
   slides:'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
   link:'<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',

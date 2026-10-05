@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Projeção · O Púlpito</title>
+<link rel="icon" type="image/png" href="icon/pulpito-64.png">
+<meta name="theme-color" content="#000000">
+<meta name="robots" content="noindex">
+<style>
+:root{--font:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color-scheme:dark}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;color:#eef4f8;font-family:var(--font);-webkit-font-smoothing:antialiased}
+body.idle,body.idle *{cursor:none!important}
+.layer{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+.layer[hidden]{display:none}
+/* Canva em 16:9, igual ao palco: o laser cai no mesmo lugar */
+#cvBox{position:relative;aspect-ratio:16/9;width:min(100vw,calc(100vh*16/9));background:#000}
+#cvFrame{position:absolute;inset:0;width:100%;height:100%;border:0}
+#laser{position:absolute;left:0;top:0;width:22px;height:22px;border-radius:50%;pointer-events:none;opacity:0;
+  background:radial-gradient(circle,#fff 0 18%,#ff3b4e 30%,rgba(255,40,70,.55) 55%,rgba(255,40,70,0) 72%);
+  box-shadow:0 0 18px 6px rgba(255,40,70,.55);transition:transform .07s linear,opacity .15s}
+#laser.on{opacity:1}
+#md{background:#000}
+#md img,#md video{max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain}
+#md iframe{width:100%;height:100%;border:0;background:#000}
+#md iframe.pdf{background:#fff}
+.txt{padding:5vw;max-height:100%;overflow:hidden;text-align:center;color:#fff;font:800 clamp(26px,4.4vw,96px)/1.3 var(--font);text-wrap:balance}
+/* nada no ar: tela preta com o logo bem discreto */
+#idle img{width:min(16vw,140px);opacity:.07;filter:grayscale(1)}
+#idle small{position:fixed;bottom:22px;left:0;right:0;text-align:center;font:600 13px/1.4 var(--font);color:#3a4250;transition:opacity .4s}
+body.linked #idle small{opacity:0}
+/* primeiro clique: tela cheia + som */
+#arm{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.72);cursor:pointer}
+#arm[hidden]{display:none}
+#arm div{max-width:520px;text-align:center;padding:28px 30px;border-radius:24px;border:1px solid rgba(255,255,255,.16);
+  background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.02));box-shadow:0 30px 80px rgba(0,0,0,.6);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+#arm b{display:block;font-size:22px;margin-bottom:10px}
+#arm span{display:block;font-size:15px;line-height:1.55;color:#b9c3cf}
+#arm kbd{font:700 12px/1 ui-monospace,Consolas,monospace;padding:2px 6px;border:1px solid rgba(255,255,255,.25);border-radius:5px}
+#mute{position:fixed;right:18px;bottom:18px;z-index:40;padding:9px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.6);color:#fff;font:700 13px/1 var(--font);cursor:pointer}
+#mute[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="layer" id="idle"><img src="icon/pulpito-512.png" alt=""><small id="idleMsg">Abra o palco do O Púlpito neste mesmo computador.</small></div>
+<div class="layer" id="cv" hidden><div id="cvBox"><iframe id="cvFrame" title="Apresentação do Canva" allow="fullscreen; autoplay" allowfullscreen></iframe><i id="laser"></i></div></div>
+<div class="layer" id="md" hidden></div>
+<div id="arm" role="button" tabindex="0" aria-label="Ativar a projeção"><div><b>Clique uma vez aqui</b><span>Isso coloca a projeção em <b>tela cheia</b> e libera o <b>som</b> dos vídeos.<br>Antes, arraste esta janela para o telão (projetor ou TV).<br><br><kbd>F</kbd> liga/desliga a tela cheia · <kbd>←</kbd> <kbd>→</kbd> passam os slides</span></div></div>
+<button id="mute" type="button" hidden>🔇 Clique para ligar o som</button>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const CH='pulpito-projecao';
+let bc=null;try{bc=new BroadcastChannel(CH)}catch(e){}
+const send=m=>{try{bc&&bc.postMessage(m)}catch(e){}};
+let armed=false,cur=null,canva=null,yt={st:-1,cur:0,dur:0,ready:false},endSent=null,lastState=0,urls={};
+
+/* ---------- arquivos guardados pelo palco (mesmo navegador) ---------- */
+let dbp=null;
+function idb(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open('pf-files',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbp}
+async function fileUrl(slug,id){
+  const k=slug+':'+id;if(urls[k])return urls[k];
+  const d=await idb();
+  const b=await new Promise((res,rej)=>{const r=d.transaction('files').objectStore('files').get(k);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+  if(!b)throw new Error('arquivo não encontrado neste computador');
+  return urls[k]=URL.createObjectURL(b);
+}
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- o que aparece ---------- */
+function layers(){
+  const m=!!cur,c=!m&&!!canva;
+  $('md').hidden=!m;$('cv').hidden=!c;$('idle').hidden=m||c;
+}
+function setCanva(cs){
+  const url=cs&&cs.url?cs.url+'#'+Math.max(1,cs.page||1):null;
+  canva=url?cs:null;
+  const f=$('cvFrame');
+  if(url&&f.getAttribute('src')!==url)f.setAttribute('src',url);
+  if(!url&&f.hasAttribute('src'))f.removeAttribute('src');
+}
+async function setMedia(m,slug){
+  const key=m?m.id+'|'+m.kind+'|'+(m.url||'')+'|'+(m.texto||''):null;
+  if(key===(cur&&cur.key))return;
+  const box=$('md');const old=box.querySelector('video');if(old)old.pause();
+  box.innerHTML='';endSent=null;yt={st:-1,cur:0,dur:0,ready:false};$('mute').hidden=true;
+  cur=m?Object.assign({key},m):null;
+  if(!m)return;
+  try{
+    if(m.kind==='texto'){box.innerHTML='<div class="txt">'+esc(m.texto||'').replace(/\n/g,'<br>')+'</div>';return}
+    if(m.kind==='youtube'&&m.yt){
+      const f=document.createElement('iframe');
+      f.src='https://www.youtube-nocookie.com/embed/'+m.yt+'?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&controls=0&enablejsapi=1&origin='+encodeURIComponent(location.origin)+(armed?'':'&mute=1');
+      f.title=m.nome||'YouTube';f.allow='autoplay; encrypted-media; picture-in-picture';f.referrerPolicy='strict-origin-when-cross-origin';
+      f.addEventListener('load',ytListen);
+      box.appendChild(f);if(!armed)$('mute').hidden=false;return;
+    }
+    const u=m.url||await fileUrl(slug,m.id);
+    if(cur.key!==key)return; // mudou enquanto carregava
+    if(m.kind==='imagem'){const i=new Image();i.src=u;i.alt=m.nome||'';box.appendChild(i)}
+    else if(m.kind==='video'){
+      const v=document.createElement('video');v.src=u;v.playsInline=true;v.autoplay=true;
+      v.addEventListener('ended',()=>ended(m.id));box.appendChild(v);
+      v.play().catch(()=>{v.muted=true;v.play().catch(()=>{});$('mute').hidden=false});
+    }
+    else if(m.kind==='pdf'){const f=document.createElement('iframe');f.className='pdf';f.src=u+'#toolbar=0&navpanes=0&view=Fit';f.title=m.nome||'PDF';box.appendChild(f)}
+    else box.innerHTML='<div class="txt">'+esc(m.nome)+'</div>';
+  }catch(e){box.innerHTML='<div class="txt" style="font-size:24px;color:#f99">'+esc(e.message||e)+'</div>'}
+}
+function ended(id){if(endSent===id)return;endSent=id;send({t:'ended',id})}
+
+/* ---------- YouTube: estado e comandos sem script externo ---------- */
+function ytFrame(){return $('md').querySelector('iframe:not(.pdf)')}
+function ytPost(o){const f=ytFrame();if(f&&f.contentWindow)f.contentWindow.postMessage(JSON.stringify(o),'*')}
+function ytCmd(func,args){ytPost({event:'command',func,args:args||[]})}
+function ytListen(){let n=0;const go=()=>{if(yt.ready||n++>20||!ytFrame())return;ytPost({event:'listening',id:1,channel:'widget'});setTimeout(go,400)};go()}
+window.addEventListener('message',e=>{
+  if(!/youtube(-nocookie)?\.com$/.test(new URL(e.origin||'http://x').hostname))return;
+  let d;try{d=typeof e.data==='string'?JSON.parse(e.data):e.data}catch(x){return}
+  if(!d||!cur||cur.kind!=='youtube')return;
+  yt.ready=true;
+  const info=d.info;
+  if(d.event==='onStateChange'&&typeof info==='number')yt.st=info;
+  if(d.event==='infoDelivery'&&info){if(typeof info.playerState==='number')yt.st=info.playerState;if(typeof info.currentTime==='number')yt.cur=info.currentTime;if(typeof info.duration==='number')yt.dur=info.duration}
+  if(yt.st===0)ended(cur.id);
+});
+
+/* ---------- comandos do palco ---------- */
+function cmd(c){
+  const v=$('md').querySelector('video');
+  if(cur&&cur.kind==='youtube'){
+    if(c==='restart'){ytCmd('seekTo',[0,true]);ytCmd('playVideo');endSent=null}
+    else if(c==='pause'||(c==='toggle'&&yt.st===1))ytCmd('pauseVideo');
+    else ytCmd('playVideo');
+    return;
+  }
+  if(!v)return;
+  if(c==='restart'){v.currentTime=0;v.play().catch(()=>{});endSent=null}
+  else if(c==='pause'||(c==='toggle'&&!v.paused))v.pause();
+  else v.play().catch(()=>{});
+}
+function status(){
+  if(!cur)return null;
+  if(cur.kind==='video'){const v=$('md').querySelector('video');return v?{kind:'video',playing:!v.paused,cur:v.currentTime||0,dur:isFinite(v.duration)?v.duration:0}:null}
+  if(cur.kind==='youtube')return {kind:'youtube',playing:yt.st===1,cur:yt.cur,dur:yt.dur};
+  return {kind:cur.kind};
+}
+function laser(l){
+  const d=$('laser'),b=$('cvBox');
+  if(!l||!l.on||!canva){d.classList.remove('on');return}
+  d.style.transform='translate3d('+(l.x*b.clientWidth).toFixed(1)+'px,'+(l.y*b.clientHeight).toFixed(1)+'px,0) translate(-50%,-50%)';
+  d.classList.add('on');
+}
+if(bc)bc.onmessage=e=>{
+  const m=e.data||{};
+  if(m.t==='state'){lastState=Date.now();document.body.classList.add('linked');setCanva(m.canva);setMedia(m.media,m.slug).then(layers);layers();laser(m.laser)}
+  else if(m.t==='laser')laser(m.laser);
+  else if(m.t==='cmd')cmd(m.c);
+};
+send({t:'hello'});
+setInterval(()=>{
+  send({t:'ping',st:status()});
+  if(Date.now()-lastState>6000){document.body.classList.remove('linked');if(Date.now()-lastState>6000)send({t:'hello'})}
+},1000);
+window.addEventListener('pagehide',()=>send({t:'bye'}));
+
+/* ---------- tela cheia, som, teclado, cursor ---------- */
+function full(on){
+  try{
+    if(on===false||(on==null&&document.fullscreenElement))document.fullscreenElement&&document.exitFullscreen();
+    else if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});
+  }catch(e){}
+}
+function arm(){
+  armed=true;$('arm').hidden=true;full(true);unmute();
+}
+function unmute(){
+  $('mute').hidden=true;
+  const v=$('md').querySelector('video');if(v){v.muted=false;v.play().catch(()=>{})}
+  if(cur&&cur.kind==='youtube'){ytCmd('unMute');ytCmd('playVideo')}
+}
+$('arm').addEventListener('click',arm);
+$('arm').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();arm()}});
+$('mute').addEventListener('click',()=>{armed=true;unmute()});
+document.addEventListener('dblclick',()=>full());
+document.addEventListener('keydown',e=>{
+  if(e.key==='f'||e.key==='F'){e.preventDefault();full();return}
+  if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' '){e.preventDefault();send({t:'nav',d:1})}
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();send({t:'nav',d:-1})}
+});
+let idleT=0;
+function wake(){document.body.classList.remove('idle');clearTimeout(idleT);idleT=setTimeout(()=>document.body.classList.add('idle'),2000)}
+document.addEventListener('mousemove',wake);wake();
+window.addEventListener('resize',()=>{const d=$('laser');if(d.classList.contains('on'))d.classList.remove('on')});
+if(!bc)$('idleMsg').textContent='Este navegador não consegue conversar com o palco. Use o Chrome.';
+})();
+</script>
+</body>
+</html>
