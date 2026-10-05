@@ -100,6 +100,7 @@ const FUNDO=[
   {el:'.timeline-card',t:'Linha do tempo e loop',d:'Mostra quanto tocou e quanto falta — arraste para pular. Ligue o <b>LOOP</b> para a música não acabar no meio da pregação.'},
   {el:'.mode-switch',t:'BASE ou FULL',d:'<b>BASE</b> mostra só o essencial. <b>FULL</b> mostra também o volume geral e cada instrumento, para mutar um por um.'},
   {el:'#tsMirror',t:'Controle pelo celular',d:'<b>ESPELHAR</b> mostra o código da sala. Com ele, o celular vira controle remoto de tudo isso.'},
+  {el:'#tab-prog',t:'Quando um momento acaba',d:'Se você usa a <b>Programação</b>, ao fim de cada momento a tela vem sozinha para lá e pergunta <b>“Acabou?”</b> — dá para seguir, atrasar só aquele momento ou atrasar tudo. A música não para. (No Slide aparece só um aviso pequeno.)'},
   {el:'#tab-slide',t:'Três abas',d:'<b>Fundo</b> (música), <b>Slide</b> (Canva e mídia) e <b>Programação</b> (o roteiro do culto). A música continua tocando quando você troca de aba. Atalhos: '+K('Alt')+' + '+K('1')+' '+K('2')+' '+K('3')+'.'},
   {el:'#tsHelp',t:'Ficou com dúvida?',d:'O botão <b>?</b> mostra o passo a passo da aba em que você estiver, quando quiser.'}
 ];
