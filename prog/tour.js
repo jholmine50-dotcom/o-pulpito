@@ -26,8 +26,11 @@ const CSS=`
 let cssDone=false;
 function css(){if(cssDone)return;cssDone=true;const s=document.createElement('style');s.textContent=CSS;document.head.appendChild(s)}
 const key=n=>'pf.tour.'+n;
-function seen(n){try{return !!localStorage.getItem(key(n))}catch(e){return true}}
-function mark(n){try{localStorage.setItem(key(n),'1')}catch(e){}}
+/* "assinatura" dos passos: se um passo novo entra no tutorial, ele volta a aparecer sozinho para quem já tinha visto */
+const sig=steps=>{let h=0;const t=(steps||[]).map(x=>x.t).join('|');for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return 'v'+(h>>>0).toString(36)};
+function stored(n){try{return localStorage.getItem(key(n))}catch(e){return 'x'}}
+function seen(n,steps){const v=stored(n);return !!v&&(!steps||v==='1'||v===sig(steps))}
+function mark(n,steps){try{localStorage.setItem(key(n),steps?sig(steps):'1')}catch(e){}}
 function visible(e){if(!e)return false;const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&getComputedStyle(e).visibility!=='hidden'}
 function find(st){
   for(const s of String(st.el).split('||')){const e=document.querySelector(s.trim());if(visible(e))return st.up&&e.closest(st.up)?e.closest(st.up):e}
@@ -42,7 +45,7 @@ function onKey(e){
   else if(e.key==='ArrowLeft'){e.preventDefault();e.stopPropagation();go(cur.i-1)}
   else if(e.key===' '){e.stopPropagation()}
 }
-function finish(){if(cur)mark(cur.name);end();const back=cur&&cur.back;cur=null;if(back&&back.focus)try{back.focus()}catch(e){}}
+function finish(){if(cur)mark(cur.name,cur.steps);end();const back=cur&&cur.back;cur=null;if(back&&back.focus)try{back.focus()}catch(e){}}
 function go(i){
   if(!cur)return;
   end();
@@ -77,13 +80,14 @@ function go(i){
 }
 function start(name,steps,title){
   css();end();
-  cur={name,steps,title,i:0,dir:1,back:document.activeElement};
-  mark(name);go(0);
+  const novo=!!stored(name)&&!seen(name,steps);
+  cur={name,steps,title:(novo?'Novidades · ':'')+(title||''),i:0,dir:1,back:document.activeElement};
+  mark(name,steps);go(0);
 }
 /* roda sozinho só na 1ª vez de cada parte */
 function auto(name,steps,title,delay){
-  if(seen(name)||document.querySelector('.pf-tour')||document.querySelector('#pfAuth'))return;
-  setTimeout(()=>{if(!seen(name)&&!document.querySelector('.pf-tour')&&!document.querySelector('#pfAuth'))start(name,steps,title)},delay||600);
+  if(seen(name,steps)||document.querySelector('.pf-tour')||document.querySelector('#pfAuth'))return;
+  setTimeout(()=>{if(!seen(name,steps)&&!document.querySelector('.pf-tour')&&!document.querySelector('#pfAuth'))start(name,steps,title)},delay||600);
 }
 
 /* ---------------- textos ---------------- */
