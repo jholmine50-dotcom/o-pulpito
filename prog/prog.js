@@ -550,7 +550,7 @@ function onLive(it){
 const PJ_CH='pulpito-projecao';
 const pj={bc:null,last:0,media:null,st:null,was:false,laserT:0,black:false};
 function pjOn(){return Date.now()-pj.last<3500}
-function pjStart(){if(!pj.bc&&!pj.started){pj.started=true;pjInit()}mountPjBar()}
+function pjStart(){if(!pj.bc&&!pj.started){pj.started=true;pjInit()}mountPjBar();renderWallPreview(true)}
 function pjInit(){
   try{pj.bc=new BroadcastChannel(PJ_CH);pj.bc.onmessage=e=>pjMsg(e.data||{})}catch(e){}
   setInterval(pjTick,1000);
@@ -580,10 +580,30 @@ function pjTick(){if(pj.was!==pjOn())pjChanged();renderPjStatus()}
 function pjChanged(){pj.was=pjOn();renderPjBar();const a=pj.media&&P&&P.anexos[pj.media.id];if(a&&!$('pfMedia').hidden)renderMonitor(a)}
 function pjState(){
   const cs=window.PF&&PF.canvaState?PF.canvaState():null;
-  return {t:'state',slug:sess&&sess.slug,canva:cs&&cs.url?{url:cs.url,page:cs.page||1}:null,media:pj.media,black:pj.black,laser:window.PF&&PF.laserState?PF.laserState():null};
+  return {t:'state',slug:sess&&sess.slug,canva:cs&&cs.url?{url:cs.url,page:cs.page||1}:null,media:pj.media,black:pj.black,wall:wallInfo(),laser:window.PF&&PF.laserState?PF.laserState():null};
 }
 function pjSend(){try{pj.bc&&pj.bc.postMessage(pjState())}catch(e){}}
 function pjSync(){clearTimeout(pjSync.t);pjSync.t=setTimeout(pjSend,30)}
+/* papel de parede da janela de projeção (prog/wall.js) */
+const wallSlug=()=>sess&&sess.slug||null;
+function wallInfo(){const m=window.PFWall&&PFWall.meta(wallSlug());return m?{v:m.v,on:m.on!==false}:null}
+function openWall(){
+  if(!window.PFWall)return toast('Editor indisponível');
+  PFWall.openEditor(wallSlug(),m=>{pjSend();renderWallPreview(true);renderPjBar();toast(m?'Papel de parede salvo'+(pjOn()?' — já está no telão':''):'Papel de parede removido')});
+}
+function toggleWall(){const m=PFWall.meta(wallSlug());if(!m)return openWall();m.on=m.on===false;m.v=Date.now();PFWall.setMeta(wallSlug(),m);pjSend();renderWallPreview(true);renderPjBar()}
+/* prévia no palco: atrás do "Nada no telão" e em tela cheia sem janela de projeção */
+let wallPrevV=null;
+async function renderWallPreview(force){
+  const area=document.querySelector('#panel-slide .sl-area');if(!area||!window.PFWall)return;
+  let el=$('slWall');if(!el){el=document.createElement('div');el.id='slWall';el.className='sl-wall';area.prepend(el)}
+  const m=PFWall.meta(wallSlug());
+  document.body.classList.toggle('has-wall',!!(m&&m.on!==false));
+  if(window.PF&&PF.refreshBar)PF.refreshBar();
+  const v=m?m.v:null;if(!force&&v===wallPrevV)return;wallPrevV=v;
+  if(!m){PFWall.render(el,null);return}
+  try{const L=await PFWall.load(wallSlug());if(L)PFWall.render(el,L.url,L.meta.kind,L.meta.p)}catch(e){}
+}
 function toggleBlack(v){
   pj.black=typeof v==='boolean'?v:!pj.black;
   document.body.classList.toggle('pj-black',pj.black);pjSend();renderPjBar();
@@ -667,6 +687,8 @@ function mountPjBar(){
     const b=e.target.closest('[data-pj]');if(!b)return;const v=b.dataset.pj;
     if(v==='abrir')return openProjWindow();
     if(v==='black')return toggleBlack();
+    if(v==='wall')return openWall();
+    if(v==='wallon')return toggleWall();
     if(v==='copiar'){navigator.clipboard.writeText(projUrl()).then(()=>toast('Link da projeção copiado'),()=>{});return}
     if(v==='ir')return goFila(+b.dataset.i,false);
     if(v==='prev')return goFila(fila.idx-1,false);
@@ -687,8 +709,13 @@ function renderPjBar(){
     <div class="pj-fila" id="pjFila">${ask?`<div class="pj-ask" role="alertdialog"><span><b>@${C.esc(ask.nome)}</b> terminou. Passar para o próximo? <small class="pj-keys"><kbd>Enter</kbd> sim · <kbd>Esc</kbd> não</small></span><button type="button" class="sl-btn primary" data-pj="sim">SIM ▸</button><button type="button" class="sl-btn" data-pj="repetir">REPETIR</button><button type="button" class="sl-btn" data-pj="nao">NÃO</button></div>`
       :fila.ids.length?`<small>FILA${it?' · '+C.esc(it.titulo||''):''}</small><button type="button" class="sl-btn" data-pj="prev" aria-label="Anterior" ${fila.idx<=0?'disabled':''}>◀</button><div class="pj-chips">${chips}</div><button type="button" class="sl-btn" data-pj="next" aria-label="Próximo" ${fila.idx>=fila.ids.length-1?'disabled':''}>▶</button>`
       :`<small class="pj-empty">Os anexos do momento no ar aparecem aqui, em fila.</small>`}</div>
-    <div class="pj-ctl"><button type="button" class="sl-btn${pj.black?' on':''}" data-pj="black" aria-pressed="${pj.black}" title="Deixa o telão preto na hora (tecla B)">${pj.black?'● TELA PRETA':'TELA PRETA'}</button>${timed?`<button type="button" class="sl-btn" data-pj="toggle" aria-label="Tocar ou pausar" title="Tocar / pausar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l9 8-9 8z" fill="currentColor"/><path d="M18 5v14"/></svg></button><button type="button" class="sl-btn" data-pj="restart" aria-label="Voltar ao começo" title="Voltar ao começo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button><span class="pj-time" id="pjTime"></span>`:''}</div>`;
+    <div class="pj-ctl">${wallBtn()}<button type="button" class="sl-btn${pj.black?' on':''}" data-pj="black" aria-pressed="${pj.black}" title="Deixa o telão preto na hora (tecla B)">${pj.black?'● TELA PRETA':'TELA PRETA'}</button>${timed?`<button type="button" class="sl-btn" data-pj="toggle" aria-label="Tocar ou pausar" title="Tocar / pausar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l9 8-9 8z" fill="currentColor"/><path d="M18 5v14"/></svg></button><button type="button" class="sl-btn" data-pj="restart" aria-label="Voltar ao começo" title="Voltar ao começo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button><span class="pj-time" id="pjTime"></span>`:''}</div>`;
   renderPjStatus();
+}
+function wallBtn(){
+  const m=window.PFWall&&PFWall.meta(wallSlug()),on=m&&m.on!==false;
+  const ic='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></svg>';
+  return `<span class="pj-wall"><button type="button" class="sl-btn" data-pj="wall" id="pjWall" title="Escolher e editar o papel de parede do telão (imagem, GIF ou MP4)">${ic}PAPEL DE PAREDE</button>${m?`<button type="button" class="sl-btn pj-sw${on?' lig':''}" data-pj="wallon" role="switch" aria-checked="${!!on}" title="${on?'Desligar':'Ligar'} o papel de parede">${on?'LIGADO':'DESLIGADO'}</button>`:''}</span>`;
 }
 function renderPjStatus(){
   const t=$('pjTime');if(!t)return;
@@ -1254,6 +1281,6 @@ async function init(s){
 }
 function showUrl(url){const id=C.ytId(url);if(!id)return false;const a={id:'yt-'+id,kind:'youtube',nome:'YouTube',url};fila={mid:null,ids:[],idx:-1,music:null,visual:a.id,ask:null};showMedia(a);renderPjBar();return true}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(pjStart,0));else setTimeout(pjStart,0);
-window.PFProg={toggleBlack,isBlack:()=>pj.black,showUrl,pjSync,pjLaser,pjOn,openProjWindow,tour,init,closeMedia,mediaOn:()=>document.body.classList.contains('pf-media-on'),use,openConfig,_state:()=>({P,cfg,comments})};
+window.PFProg={openWall,toggleBlack,isBlack:()=>pj.black,showUrl,pjSync,pjLaser,pjOn,openProjWindow,tour,init,closeMedia,mediaOn:()=>document.body.classList.contains('pf-media-on'),use,openConfig,_state:()=>({P,cfg,comments})};
 if(window.PFAuth)PFAuth.ready.then(s=>{if(s&&document.getElementById('panel-prog'))init(s)});
 })();

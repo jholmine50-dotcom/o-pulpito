@@ -1991,13 +1991,13 @@ function v2RenderBar(cs,on){
   const mOn=document.body.classList.contains('pf-media-on');
   if(e&&mOn)e.style.display='none';
   ['slPrev','slNext'].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=!on||mOn});
-  ['slFull','slClose'].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=!(on||mOn)});
+  ['slFull','slClose'].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=!(on||mOn||(id==='slFull'&&document.body.classList.contains('has-wall')))});
   const pv=document.getElementById('slPrev');if(pv&&on)pv.disabled=(cs.page||1)<=1;
   const u=document.getElementById('slUrl');if(u&&document.activeElement!==u)u.value=on?cs.url:'';
   if(window.PFProg&&PFProg.pjSync)PFProg.pjSync();
 }
 function v2EnterFull(){
-  if(!canvaState().url&&!document.body.classList.contains('pf-media-on'))return;
+  if(!canvaState().url&&!document.body.classList.contains('pf-media-on')&&!document.body.classList.contains('has-wall'))return;
   document.body.classList.add('slide-full');
   v2Idle();
   const el=document.documentElement;
@@ -2420,6 +2420,7 @@ peInit();
 <script src="prog/core-comments.js"></script>
 <script src="prog/mqtt.js"></script>
 <script src="prog/auth.js"></script>
+<script src="prog/wall.js"></script>
 <script src="prog/prog.js"></script>
 <script src="prog/tour.js"></script>
 </body></html>

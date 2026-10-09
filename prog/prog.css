@@ -445,3 +445,15 @@ body.slide-full.pj-black .sl-area::after{content:"";z-index:400}
 .pj-keys kbd{font:700 10px/1 var(--mono,monospace);padding:2px 5px;border:1px solid rgba(255,255,255,.25);border-radius:4px}
 .sl-empty .sl-empty-tip{margin-top:6px;font-size:12px;color:#8fa0b2;max-width:440px}
 .pj-st .sl-btn svg{width:15px;height:15px}
+
+/* ===== papel de parede (prévia no palco e botões) ===== */
+#slWall.sl-wall{position:absolute;inset:12px 70px 78px;border-radius:14px;overflow:hidden;display:none;opacity:.85;border:1px solid rgba(255,255,255,.12);pointer-events:none}
+body.has-wall #slWall.sl-wall{display:block}
+#slWall.sl-wall::after{content:"PAPEL DE PAREDE · é o que está no telão agora";position:absolute;left:10px;top:10px;z-index:5;padding:5px 10px;border-radius:999px;background:rgba(0,0,0,.6);color:#cfe;font:700 11px/1 var(--font)}
+body.has-wall .sl-empty{display:none!important}
+body.slide-full #slWall.sl-wall{inset:0;border-radius:0;border:0;opacity:1;z-index:1}
+body.slide-full #slWall.sl-wall::after{display:none}
+.pj-wall{display:inline-flex;gap:4px}
+.pj-sw{min-width:0!important;padding:0 10px!important;font-size:10px!important;color:#9aa6b4!important}
+.pj-sw.lig{color:#bfffe0!important;border-color:rgba(143,240,194,.55)!important}
+@media(max-width:1180px){#pjWall{font-size:0!important;gap:0!important;padding:0 11px!important}#pjWall svg{width:17px;height:17px}}

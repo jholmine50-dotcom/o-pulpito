@@ -21,6 +21,11 @@ body.idle,body.idle *{cursor:none!important}
   box-shadow:0 0 18px 6px rgba(255,40,70,.55);transition:transform .07s linear,opacity .15s}
 #laser.on{opacity:1}
 #md{background:#000}
+#md.on-wall{background:transparent}
+#md.on-wall .txt{text-shadow:0 .06em .3em rgba(0,0,0,.7),0 0 2px rgba(0,0,0,.6)}
+#cv{background:#000}
+#wall{position:fixed;inset:0}
+#wall[hidden]{display:none}
 #md img,#md video{max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain}
 #md iframe{width:100%;height:100%;border:0;background:#000}
 #md iframe.pdf{background:#fff}
@@ -50,12 +55,14 @@ body.black #black{opacity:1}
 </style>
 </head>
 <body>
+<div id="wall" hidden></div>
 <div class="layer" id="idle"><img src="icon/pulpito-512.png" alt=""><small id="idleMsg">Abra o palco do O Púlpito neste mesmo computador.</small></div>
 <div class="layer" id="cv" hidden><div id="cvBox"><iframe id="cvFrame" title="Apresentação do Canva" allow="fullscreen; autoplay" allowfullscreen></iframe><i id="laser"></i></div></div>
 <div class="layer" id="md" hidden></div>
 <div id="arm" role="button" tabindex="0" aria-label="Ativar a projeção"><div><b>Clique uma vez aqui</b><span>Isso coloca a projeção em <b>tela cheia</b> e libera o <b>som</b> dos vídeos.<br>Antes, arraste esta janela para o telão (projetor ou TV).<br><br><kbd>F</kbd> tela cheia · <kbd>←</kbd> <kbd>→</kbd> passam os slides · <kbd>B</kbd> tela preta</span></div></div>
 <div id="black" aria-hidden="true"></div>
 <button id="mute" type="button" hidden>🔇 Clique para ligar o som</button>
+<script src="prog/wall.js"></script>
 <script>
 (function(){
 'use strict';
@@ -78,10 +85,27 @@ async function fileUrl(slug,id){
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ---------- o que aparece ---------- */
+let wall=null,wallV=null,slugNow=null;
 function layers(){
-  const m=!!cur,c=!m&&!!canva;
-  $('md').hidden=!m;$('cv').hidden=!c;$('idle').hidden=m||c;
+  const m=!!cur,c=!m&&!!canva,w=!!(wall&&wall.meta.on);
+  const onWall=w&&m&&cur.kind==='texto'&&wall.meta.letras!==false;
+  $('md').hidden=!m;$('cv').hidden=!c;$('idle').hidden=m||c||w;
+  $('md').classList.toggle('on-wall',onWall);
+  $('wall').hidden=!(w&&(!m&&!c||onWall));
+  const v=$('wall').querySelector('video');if(v){if($('wall').hidden)v.pause();else v.play().catch(()=>{})}
 }
+/* papel de parede (definido no palco, aba Projeção) */
+async function loadWall(slug,force){
+  if(!window.PFWall)return;
+  const meta=PFWall.meta(slug);
+  const v=meta?meta.v:null;
+  if(!force&&v===wallV&&slug===slugNow)return;
+  wallV=v;slugNow=slug;
+  if(!meta){wall=null;PFWall.render($('wall'),null);layers();return}
+  try{const L=await PFWall.load(slug);wall=L;if(L)PFWall.render($('wall'),L.url,L.meta.kind,L.meta.p)}catch(e){wall=null}
+  layers();
+}
+window.addEventListener('storage',e=>{if(window.PFWall&&e.key===PFWall.metaKey(slugNow))loadWall(slugNow,true)});
 function setCanva(cs){
   const url=cs&&cs.url?cs.url+'#'+Math.max(1,cs.page||1):null;
   canva=url?cs:null;
@@ -163,7 +187,7 @@ function laser(l){
 }
 if(bc)bc.onmessage=e=>{
   const m=e.data||{};
-  if(m.t==='state'){lastState=Date.now();document.body.classList.toggle('black',!!m.black);document.body.classList.add('linked');setCanva(m.canva);setMedia(m.media,m.slug).then(layers);layers();laser(m.laser)}
+  if(m.t==='state'){lastState=Date.now();if(m.wall!==undefined)loadWall(m.slug,m.wall&&m.wall.v!==wallV);document.body.classList.toggle('black',!!m.black);document.body.classList.add('linked');setCanva(m.canva);setMedia(m.media,m.slug).then(layers);layers();laser(m.laser)}
   else if(m.t==='laser')laser(m.laser);
   else if(m.t==='cmd')cmd(m.c);
 };
