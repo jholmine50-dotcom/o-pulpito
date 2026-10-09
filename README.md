@@ -27,6 +27,9 @@
   - Trocar de aba **não para a música**. Quando chega uma apresentação nova (do PC ou do celular), o palco vai sozinho para a aba Projeção (se a janela de projeção não estiver aberta).
   - **Janela de projeção** (`projecao.html`): o botão **JANELA DE PROJEÇÃO ↗** (rodapé da aba Projeção) abre uma janela limpa, só com o conteúdo, para arrastar até o projetor/TV. Um clique nela liga a tela cheia e o som (`F` alterna a tela cheia; `← →` passam os slides). Ela conversa com o palco pelo `BroadcastChannel('pulpito-projecao')` no mesmo computador e lê os arquivos do mesmo IndexedDB. Com ela aberta, o palco vira monitor (mostra o que está no telão e os controles ⏯ ⟲).
   - **Fila**: os anexos do momento no ar entram em fila no rodapé da Projeção. Quando um vídeo, YouTube ou música termina, o palco pergunta **"Passar para o próximo?"** (SIM · REPETIR · NÃO); fora da aba Projeção aparece um aviso pequeno.
+  - **Tela preta**: botão **TELA PRETA** no rodapé da Projeção ou tecla `B` (no palco ou na janela de projeção) apaga o telão na hora; de novo volta.
+  - **Atalhos da fila**: `Enter` = passar para o próximo, `Esc` = não. Nas Configurações dá para ligar **Passar sozinho para o próximo anexo**.
+  - Atalhos do Fundo (`Espaço` fala, `F` fade, `↑ ↓` intensidade) não disparam mais quando você está digitando; `F` e `↑ ↓` só valem na aba Fundo.
   - **Relógio sempre à vista**: o card do relógio fica sempre na Programação (antes do culto conta quanto falta) e, nas outras abas, um relógio pequeno no canto mostra o momento no ar.
   - Teclas: `←` `→` / `PgUp` `PgDn` passam slides (funciona com passador), `Alt+1` / `Alt+2` trocam de aba; as teclas antigas continuam (`Espaço` fala, `↑` `↓` intensidade, `F` fade).
   - **ESPELHAR** + código da sala ficam no canto direito da barra de abas.

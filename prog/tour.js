@@ -108,8 +108,9 @@ const FUNDO=[
 const SLIDE=[
   {el:'#pjOpen',up:'.pj-st',t:'Janela de projeção',d:'Clique em <b>JANELA DE PROJEÇÃO ↗</b>: abre uma janela limpa, só com o que vai no telão. Arraste-a para o projetor/TV e clique nela uma vez (fica em tela cheia e libera o som). Pronto: você não precisa mais arrastar o palco de um lado para o outro. O <b>⧉</b> copia o link.'},
   {el:'#pjFila',up:'.pj-bar',t:'A fila do momento',d:'Quando um momento da Programação entra no ar, os anexos dele aparecem aqui, em ordem, e vão sozinhos para a projeção. Clique num anexo para mostrar; ◀ ▶ passam.'},
-  {el:'#pjFila',up:'.pj-bar',t:'Passar para o próximo?',d:'Quando um <b>vídeo</b>, <b>YouTube</b> ou <b>música</b> termina, aparece aqui: <b>SIM</b> passa para o próximo anexo, <b>REPETIR</b> toca de novo, <b>NÃO</b> fica onde está.'},
-  {el:'#slUrl',up:'.sl-bar',t:'Abrir uma apresentação',d:'Cole o link do Canva (até o encurtado) e clique <b>ABRIR</b>. Pelo celular também dá.'},
+  {el:'#pjFila',up:'.pj-bar',t:'Passar para o próximo?',d:'Quando um <b>vídeo</b>, <b>YouTube</b> ou <b>música</b> termina, aparece aqui: <b>SIM</b> passa para o próximo anexo (ou '+K('Enter')+'), <b>REPETIR</b> toca de novo, <b>NÃO</b> fica onde está ('+K('Esc')+'). Se preferir que passe sozinho, ligue nas Configurações.'},
+  {el:'#pjBar [data-pj=black]',t:'Tela preta',d:'Precisa apagar o telão na hora (oração, imprevisto)? <b>TELA PRETA</b> ou a tecla '+K('B')+' — aperte de novo para voltar. Funciona também na janela de projeção.'},
+  {el:'#slUrl',up:'.sl-bar',t:'Abrir um link',d:'Cole o link do Canva (até o encurtado) ou do YouTube e clique <b>ABRIR</b>. Pelo celular também dá abrir o Canva.'},
   {el:'.sl-nav',t:'Passar os slides',d:'‹ › passam os slides. Funciona também com as setas '+K('←')+' '+K('→')+' e com passador de slides ('+K('PgUp')+' '+K('PgDn')+').'},
   {el:'#slFull',t:'Tela cheia para projetar',d:'Use <b>TELA CHEIA</b> na hora de projetar — '+K('Esc')+' sai. Se o telão espelha este PC, ele mostra a aba que estiver aberta.'},
   {el:'#panel-slide .sl-area',t:'Onde o slide aparece',d:'Aqui aparece o slide. O trackpad do celular vira um <b>laser vermelho</b> por cima dele. Imagens, vídeos, YouTube e letras anexados na Programação também. Com a janela de projeção aberta, aqui vira o monitor (o vídeo passa só lá).'},

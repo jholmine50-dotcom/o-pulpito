@@ -244,14 +244,14 @@ input[type=range]::-moz-range-thumb{width:30px;height:30px;border:1px solid rgba
       <div class="mark"><img src="../icon/pulpito-192.png" alt="" style="width:100%;height:100%;display:block;border-radius:inherit;object-fit:cover"></div>
       <div>
         <div class="bt">O PÚLPITO · CONTROLE</div>
-        <div class="bs">um arquivo só · palco + controle · espelhamento em tempo real</div>
+        <div class="bs">música, projeção e programação do culto · celular como controle</div>
       </div>
     </div>
     <div class="cards2">
       <button class="role-card" data-role="palco">
         <div class="ri">PC</div>
         <div class="rn">PALCO</div>
-        <div class="rd">Gera o código e mostra o que o celular manda. ATENÇÃO: este site não tem som — o áudio só sai do arquivo PREACH_FLOW_V10_ESPELHO.html, aberto no PC.</div>
+        <div class="rd">Use no computador da igreja: é de lá que sai o som e a projeção. Ele gera o código da sala para o celular entrar.</div>
       </button>
       <button class="role-card" data-role="controle">
         <div class="ri">CEL</div>
@@ -1164,7 +1164,7 @@ function showApp(){
   }
   $('codeCard').classList.toggle('hidden',role!=='palco');
   $('mirrorNote').textContent=role==='palco'
-    ?'ATENÇÃO: este palco é só espelho — não tem som. Para tocar, abra o PREACH_FLOW_V10_ESPELHO.html no PC (ele gera outro código) e use o celular só como controle.'
+    ?'ATENÇÃO: esta tela é só espelho — não tem som. Para tocar, abra o palco do O Púlpito no computador (ele gera o código) e use o celular só como controle.'
     :'Tudo que você mexer aqui aparece no palco na hora.';
   buildLinks();
   render();

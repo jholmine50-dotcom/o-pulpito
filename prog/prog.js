@@ -4,7 +4,7 @@
 const C=window.PFCore;
 const $=id=>document.getElementById(id);
 let sess=null,P=null,cfg=null,editing=null,lastLive=null,client=null,comments={v:1,list:[],del:[]},pubTimer=0,lastRows='';
-const DEF_CFG={acao:'auto',aviso:5,rolar:true,duck:true,lastDur:30,perguntarFim:true};
+const DEF_CFG={acao:'auto',aviso:5,rolar:true,duck:true,lastDur:30,perguntarFim:true,seguir:false};
 let lastSave=0;
 const K=()=> 'pf.prog.'+sess.slug, KC=()=> 'pf.cfg.'+sess.slug, KL=()=> 'pf.live.'+sess.slug;
 
@@ -170,7 +170,7 @@ function editHTML(it){
       <div class="pg-tipos" role="radiogroup" aria-label="Tipo de momento">${Object.entries(C.TIPOS).map(([k,t])=>`<label class="pg-tp" style="--c:${t.color}"><input type="radio" name="tipo" value="${k}" ${it.tipo===k?'checked':''}>${C.tipoIcon(k)}<span>${t.label}</span></label>`).join('')}</div>
       <input name="titulo" value="${C.esc(it.titulo)}" placeholder="Nome do momento (ex.: Louvor de abertura, Pregação, Santa Ceia)" aria-label="Nome do momento" maxlength="80">
       <div class="pg-ta-wrap"><textarea name="texto" rows="3" placeholder="O que vai acontecer, quem conduz… (opcional)" aria-label="Descrição">${C.esc(it.texto)}</textarea></div>
-      <div class="pg-tip">Dica: digite <b>@</b> no texto para anexar slide, imagem, vídeo, música ou letra — ou arraste o arquivo para cá.</div>
+      <div class="pg-tip">Dica: digite <b>@</b> no texto para anexar slide do Canva, vídeo do YouTube, imagem, vídeo, música ou letra — ou arraste o arquivo para cá.</div>
       <div class="pg-edit-row">
         <label>Duração <input type="number" name="dur" min="1" max="600" value="${C.esc(it.dur)}" placeholder="${P.auto?'10':'auto'}" ${P.auto?'required':''}> min</label>
         <span class="pg-sp"></span>
@@ -548,7 +548,7 @@ function onLive(it){
 
 /* ---------------- janela de PROJEÇÃO (projecao.html, mesmo computador) ---------------- */
 const PJ_CH='pulpito-projecao';
-const pj={bc:null,last:0,media:null,st:null,was:false,laserT:0};
+const pj={bc:null,last:0,media:null,st:null,was:false,laserT:0,black:false};
 function pjOn(){return Date.now()-pj.last<3500}
 function pjStart(){if(!pj.bc&&!pj.started){pj.started=true;pjInit()}mountPjBar()}
 function pjInit(){
@@ -572,6 +572,7 @@ function pjMsg(m){
     if(!was)pjChanged();
     renderPjStatus();
   }else if(m.t==='ended'){onItemEnded(m.id)}
+  else if(m.t==='black'){toggleBlack()}
   else if(m.t==='nav'){if(PF.canvaNav&&PF.canvaState&&PF.canvaState().url)PF.canvaNav(m.d>0?1:-1)}
   else if(m.t==='bye'){pj.last=0;pjChanged()}
 }
@@ -579,10 +580,15 @@ function pjTick(){if(pj.was!==pjOn())pjChanged();renderPjStatus()}
 function pjChanged(){pj.was=pjOn();renderPjBar();const a=pj.media&&P&&P.anexos[pj.media.id];if(a&&!$('pfMedia').hidden)renderMonitor(a)}
 function pjState(){
   const cs=window.PF&&PF.canvaState?PF.canvaState():null;
-  return {t:'state',slug:sess&&sess.slug,canva:cs&&cs.url?{url:cs.url,page:cs.page||1}:null,media:pj.media,laser:window.PF&&PF.laserState?PF.laserState():null};
+  return {t:'state',slug:sess&&sess.slug,canva:cs&&cs.url?{url:cs.url,page:cs.page||1}:null,media:pj.media,black:pj.black,laser:window.PF&&PF.laserState?PF.laserState():null};
 }
 function pjSend(){try{pj.bc&&pj.bc.postMessage(pjState())}catch(e){}}
 function pjSync(){clearTimeout(pjSync.t);pjSync.t=setTimeout(pjSend,30)}
+function toggleBlack(v){
+  pj.black=typeof v==='boolean'?v:!pj.black;
+  document.body.classList.toggle('pj-black',pj.black);pjSend();renderPjBar();
+  toast(pj.black?'Tela preta (aperte B para voltar)':'Tela de volta');
+}
 function pjLaser(l){try{pj.bc&&pj.bc.postMessage({t:'laser',laser:l})}catch(e){}}
 function pjCmd(c){try{pj.bc&&pj.bc.postMessage({t:'cmd',c})}catch(e){}}
 function openProjWindow(){
@@ -619,17 +625,26 @@ function applyAnexo(a){
 function onItemEnded(id){
   if(!id||(id!==fila.music&&id!==fila.visual))return;
   const k=fila.ids.indexOf(id),a=P.anexos[id];
-  if(k>=0&&k<fila.ids.length-1){fila.ask={id};renderPjBar();showPjAsk(a)}
+  if(k>=0&&k<fila.ids.length-1){
+    if(cfg&&cfg.seguir){const nx=P.anexos[fila.ids[k+1]];toast('Próximo: @'+(nx?nx.nome:''));goFila(k+1,true);return}
+    fila.ask={id};renderPjBar();showPjAsk(a)}
   else toast((a?'@'+a.nome:'Arquivo')+' terminou'+(fila.ids.length>1?' — fim da fila':''));
 }
 function showPjAsk(a){
   closePjAsk();
   if(document.body.classList.contains('tab-slide'))return; // na aba Projeção a pergunta já aparece na barra
   const b=document.createElement('div');b.id='pjAskMini';b.className='pg-ask-mini pj';b.setAttribute('role','alertdialog');
-  b.innerHTML=`<span>⏹ <b>@${C.esc(a?a.nome:'')}</b> terminou · passar para o próximo?</span><button type="button" class="pg-btn sm primary" data-pj="sim">SIM</button><button type="button" class="pg-btn sm" data-pj="nao">NÃO</button>`;
+  b.innerHTML=`<span><b>@${C.esc(a?a.nome:'')}</b> terminou · passar para o próximo?</span><button type="button" class="pg-btn sm primary" data-pj="sim">SIM</button><button type="button" class="pg-btn sm" data-pj="nao">NÃO</button>`;
   b.onclick=e=>{const x=e.target.closest('[data-pj]');if(x)pjAnswer(x.dataset.pj)};
   document.body.appendChild(b);
 }
+document.addEventListener('keydown',e=>{
+  if(!fila.ask||e.ctrlKey||e.metaKey||e.altKey)return;
+  const tg=e.target&&e.target.tagName;if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT'||tg==='BUTTON')return;
+  if(document.querySelector('.pg-modal,.pf-tour'))return;
+  if(e.key==='Enter'){e.preventDefault();e.stopPropagation();pjAnswer('sim')}
+  else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();pjAnswer('nao')}
+},true);
 function closePjAsk(){const b=$('pjAskMini');if(b)b.remove()}
 function pjAnswer(v){
   const ask=fila.ask;fila.ask=null;closePjAsk();
@@ -651,6 +666,7 @@ function mountPjBar(){
   bar.addEventListener('click',e=>{
     const b=e.target.closest('[data-pj]');if(!b)return;const v=b.dataset.pj;
     if(v==='abrir')return openProjWindow();
+    if(v==='black')return toggleBlack();
     if(v==='copiar'){navigator.clipboard.writeText(projUrl()).then(()=>toast('Link da projeção copiado'),()=>{});return}
     if(v==='ir')return goFila(+b.dataset.i,false);
     if(v==='prev')return goFila(fila.idx-1,false);
@@ -667,11 +683,11 @@ function renderPjBar(){
     return `<button type="button" class="pj-chip k-${a.kind}${cur?' on':''}${k===fila.idx?' at':''}" data-pj="ir" data-i="${k}" title="${C.esc(C.KIND_LABEL[a.kind]||'')}">${C.icon(a.kind)}@${C.esc(a.nome)}</button>`}).join('');
   const ask=fila.ask&&P&&P.anexos[fila.ask.id];
   const cur=fila.visual&&(pj.media&&pj.media.id===fila.visual?pj.media:P&&P.anexos[fila.visual]),timed=cur&&(cur.kind==='video'||cur.kind==='youtube');
-  bar.innerHTML=`<div class="pj-st">${on?`<span class="pj-dot on"></span><b>Projeção conectada</b>`:`<button type="button" class="sl-btn primary" data-pj="abrir" id="pjOpen" title="Abre só a tela de projeção, sem botões, para colocar no telão">JANELA DE PROJEÇÃO ↗</button><button type="button" class="sl-btn" data-pj="copiar" aria-label="Copiar link da janela de projeção" title="Copiar o link">⧉</button>`}</div>
-    <div class="pj-fila" id="pjFila">${ask?`<div class="pj-ask" role="alertdialog"><span>⏹ <b>@${C.esc(ask.nome)}</b> terminou. Passar para o próximo?</span><button type="button" class="sl-btn primary" data-pj="sim">SIM ▸</button><button type="button" class="sl-btn" data-pj="repetir">REPETIR</button><button type="button" class="sl-btn" data-pj="nao">NÃO</button></div>`
+  bar.innerHTML=`<div class="pj-st">${on?`<span class="pj-dot on"></span><b>Projeção conectada</b>`:`<button type="button" class="sl-btn primary" data-pj="abrir" id="pjOpen" title="Abre só a tela de projeção, sem botões, para colocar no telão">JANELA DE PROJEÇÃO ↗</button><button type="button" class="sl-btn" data-pj="copiar" aria-label="Copiar link da janela de projeção" title="Copiar o link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>`}</div>
+    <div class="pj-fila" id="pjFila">${ask?`<div class="pj-ask" role="alertdialog"><span><b>@${C.esc(ask.nome)}</b> terminou. Passar para o próximo? <small class="pj-keys"><kbd>Enter</kbd> sim · <kbd>Esc</kbd> não</small></span><button type="button" class="sl-btn primary" data-pj="sim">SIM ▸</button><button type="button" class="sl-btn" data-pj="repetir">REPETIR</button><button type="button" class="sl-btn" data-pj="nao">NÃO</button></div>`
       :fila.ids.length?`<small>FILA${it?' · '+C.esc(it.titulo||''):''}</small><button type="button" class="sl-btn" data-pj="prev" aria-label="Anterior" ${fila.idx<=0?'disabled':''}>◀</button><div class="pj-chips">${chips}</div><button type="button" class="sl-btn" data-pj="next" aria-label="Próximo" ${fila.idx>=fila.ids.length-1?'disabled':''}>▶</button>`
       :`<small class="pj-empty">Os anexos do momento no ar aparecem aqui, em fila.</small>`}</div>
-    <div class="pj-ctl">${timed?`<button type="button" class="sl-btn" data-pj="toggle" aria-label="Tocar ou pausar">⏯</button><button type="button" class="sl-btn" data-pj="restart" aria-label="Voltar ao começo">⟲</button><span class="pj-time" id="pjTime"></span>`:''}</div>`;
+    <div class="pj-ctl"><button type="button" class="sl-btn${pj.black?' on':''}" data-pj="black" aria-pressed="${pj.black}" title="Deixa o telão preto na hora (tecla B)">${pj.black?'● TELA PRETA':'TELA PRETA'}</button>${timed?`<button type="button" class="sl-btn" data-pj="toggle" aria-label="Tocar ou pausar" title="Tocar / pausar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4l9 8-9 8z" fill="currentColor"/><path d="M18 5v14"/></svg></button><button type="button" class="sl-btn" data-pj="restart" aria-label="Voltar ao começo" title="Voltar ao começo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button><span class="pj-time" id="pjTime"></span>`:''}</div>`;
   renderPjStatus();
 }
 function renderPjStatus(){
@@ -703,7 +719,7 @@ async function renderMonitor(a){
   try{
     if(a.kind==='texto')inner=`<div class="pf-media-text">${C.esc(a.texto||'').replace(/\n/g,'<br>')}</div>`;
     else if(pjOn()&&(a.kind==='video'||a.kind==='youtube'||a.kind==='pdf'))
-      inner=`<div class="pf-mon">${C.icon(a.kind)}<b>@${C.esc(a.nome)}</b><span>passando na janela de projeção</span><small>use ⏯ e ⟲ na barra de baixo</small></div>`;
+      inner=`<div class="pf-mon">${C.icon(a.kind)}<b>@${C.esc(a.nome)}</b><span>passando na janela de projeção</span><small>tocar, pausar e voltar ao começo: na barra de baixo</small></div>`;
     else if(a.kind==='youtube')inner=`<iframe class="yt" data-id="${a.id}" src="${C.ytEmbed(C.ytId(a.url),{origin:location.origin})}" title="${C.esc(a.nome)}" allow="autoplay; encrypted-media; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
     else{
       const u=await urlOf(a);
@@ -1104,6 +1120,7 @@ function openConfig(){
       <label class="cf-row"><span>Bolinha laranja (<b>prestes a acontecer</b>)<small>quantos minutos antes</small></span><input type="number" id="cfAviso" min="1" max="60"></label>
       <label class="cf-row"><span>Duração do último item<small>quando ele não tiver duração própria (min)</small></span><input type="number" id="cfLast" min="5" max="600"></label>
       <label class="cf-row"><span>Perguntar <b>"Acabou?"</b> quando o tempo de um momento terminar<small>a tela vai para a Programação (menos se estiver na Projeção) e pergunta se pode seguir ou atrasar</small></span><input type="checkbox" id="cfFim"></label>
+      <label class="cf-row"><span>Passar sozinho para o próximo anexo<small>quando um vídeo, YouTube ou música da fila terminar, sem perguntar</small></span><input type="checkbox" id="cfSeguir"></label>
       <label class="cf-row"><span>Rolar sozinho até o momento no ar</span><input type="checkbox" id="cfRolar"></label>
       <label class="cf-row"><span>Abaixar a música do Fundo ao tocar música anexada</span><input type="checkbox" id="cfDuck"></label>
     </div>
@@ -1120,8 +1137,8 @@ function openConfig(){
     <input type="file" id="cfFile" accept="application/json" hidden></div>`;
   document.body.appendChild(d);
   const q=id=>d.querySelector('#'+id);
-  q('cfAcao').value=cfg.acao;q('cfAviso').value=cfg.aviso;q('cfLast').value=cfg.lastDur;q('cfRolar').checked=cfg.rolar;q('cfFim').checked=cfg.perguntarFim!==false;q('cfDuck').checked=cfg.duck;
-  const upd=()=>{cfg.acao=q('cfAcao').value;cfg.aviso=Math.max(1,+q('cfAviso').value||5);cfg.lastDur=Math.max(5,+q('cfLast').value||30);cfg.rolar=q('cfRolar').checked;cfg.perguntarFim=q('cfFim').checked;cfg.duck=q('cfDuck').checked;saveCfg();tick();schedulePublish()};
+  q('cfAcao').value=cfg.acao;q('cfAviso').value=cfg.aviso;q('cfLast').value=cfg.lastDur;q('cfRolar').checked=cfg.rolar;q('cfFim').checked=cfg.perguntarFim!==false;q('cfDuck').checked=cfg.duck;q('cfSeguir').checked=!!cfg.seguir;
+  const upd=()=>{cfg.acao=q('cfAcao').value;cfg.aviso=Math.max(1,+q('cfAviso').value||5);cfg.lastDur=Math.max(5,+q('cfLast').value||30);cfg.rolar=q('cfRolar').checked;cfg.perguntarFim=q('cfFim').checked;cfg.duck=q('cfDuck').checked;cfg.seguir=q('cfSeguir').checked;saveCfg();tick();schedulePublish()};
   d.querySelectorAll('select,input').forEach(x=>x.addEventListener('change',upd));
   const close=()=>{d.remove();$('tsConfig')&&$('tsConfig').focus()};
   d.querySelector('[data-x]').onclick=close;d.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape')close()});
@@ -1237,6 +1254,6 @@ async function init(s){
 }
 function showUrl(url){const id=C.ytId(url);if(!id)return false;const a={id:'yt-'+id,kind:'youtube',nome:'YouTube',url};fila={mid:null,ids:[],idx:-1,music:null,visual:a.id,ask:null};showMedia(a);renderPjBar();return true}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(pjStart,0));else setTimeout(pjStart,0);
-window.PFProg={showUrl,pjSync,pjLaser,pjOn,openProjWindow,tour,init,closeMedia,mediaOn:()=>document.body.classList.contains('pf-media-on'),use,openConfig,_state:()=>({P,cfg,comments})};
+window.PFProg={toggleBlack,isBlack:()=>pj.black,showUrl,pjSync,pjLaser,pjOn,openProjWindow,tour,init,closeMedia,mediaOn:()=>document.body.classList.contains('pf-media-on'),use,openConfig,_state:()=>({P,cfg,comments})};
 if(window.PFAuth)PFAuth.ready.then(s=>{if(s&&document.getElementById('panel-prog'))init(s)});
 })();

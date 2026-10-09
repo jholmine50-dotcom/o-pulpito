@@ -272,7 +272,7 @@ body.v2.pe-host #pe-canvaCard{display:none!important}
 .sl-area{position:relative;flex:1 1 auto;min-height:0}
 .sl-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;color:var(--muted)}
 .sl-empty svg{width:46px;height:46px;color:var(--dim)}
-.sl-empty b{font-size:17px;color:var(--text)}
+.sl-empty>b{font-size:17px;color:var(--text)}
 .sl-empty span{font-size:13px;max-width:420px;line-height:1.55}
 .sl-hint{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:11px;color:var(--dim);pointer-events:none}
 .sl-hint kbd{font:700 10px/1 var(--mono);padding:2px 5px;border:1px solid var(--line2);border-radius:4px;color:var(--muted)}
@@ -509,8 +509,9 @@ body.pe-cell{background:transparent!important}
   <div class="sl-area">
     <div class="sl-empty" id="slEmpty">
       <svg  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-      <b>Nenhuma apresentação aberta</b>
-      <span>Cole o link do Canva aqui em cima — ou mande pelo celular. Qualquer link serve, inclusive o encurtado.</span>
+      <b>Nada no telão agora</b>
+      <span>Cole aqui em cima um link do <b>Canva</b> ou do <b>YouTube</b> — ou mande pelo celular. Os anexos da <b>Programação</b> também aparecem aqui quando o momento entra no ar.</span>
+      <span class="sl-empty-tip">Dica: abra a <b>JANELA DE PROJEÇÃO</b> (lá embaixo) e deixe-a no telão — assim você não precisa arrastar o palco de um lado para o outro.</span>
     </div>
   </div>
   <div class="sl-hint"><kbd>←</kbd> <kbd>→</kbd> ou <kbd>PgUp</kbd> <kbd>PgDn</kbd> passam os slides (funciona com passador) · a música continua tocando na aba Fundo</div>
@@ -533,7 +534,7 @@ body.pe-cell{background:transparent!important}
         <div class="brand-mark"><img src="icon/pulpito-192.png" alt="" style="width:100%;height:100%;display:block;border-radius:inherit;object-fit:cover"></div>
         <div>
           <div class="brand">O PÚLPITO</div>
-          <div class="muted">música, slides e programação do culto · V4</div>
+          <div class="muted">música, projeção e programação do culto · V4</div>
         </div>
       </div>
       <div class="header-right">
@@ -1057,7 +1058,12 @@ trackList.addEventListener('click',e=>{
   if(btn)toggleMute(btn.getAttribute('data-mute'));
 });
 window.addEventListener('keydown',e=>{
-  if(e.target.tagName==='INPUT')return;
+  const tg=e.target&&e.target.tagName;
+  if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT'||(e.target&&e.target.isContentEditable)||e.ctrlKey||e.metaKey||e.altKey)return;
+  if(document.querySelector('.pg-modal,.pg-focus:not([hidden]),#pfAuth'))return;
+  const fundo=!document.body.classList.contains('v2')||document.body.classList.contains('tab-fundo');
+  if(e.code==='Space'&&(tg==='BUTTON'||tg==='A'))return;
+  if((e.key==='ArrowUp'||e.key==='ArrowDown'||e.key==='f'||e.key==='F')&&!fundo)return;
   if(e.code==='Space'){e.preventDefault();started?setDuck(!ducked):playAll()}
   if(e.key==='ArrowUp')fader.value=Math.min(100,+fader.value+3),expression=+fader.value,applyMix(false);
   if(e.key==='ArrowDown')fader.value=Math.max(0,+fader.value-3),expression=+fader.value,applyMix(false);
@@ -1086,14 +1092,14 @@ body.pe-host .pe-host-hide{display:none!important}
       <div class="mark"><img src="icon/pulpito-192.png" alt="" style="width:100%;height:100%;display:block;border-radius:inherit;object-fit:cover"></div>
       <div>
         <div class="bt">O PÚLPITO · CONTROLE</div>
-        <div class="bs">um arquivo só · palco + controle · espelhamento em tempo real</div>
+        <div class="bs">música, projeção e programação do culto · celular como controle</div>
       </div>
     </div>
     <div class="cards2">
       <button class="role-card" data-role="palco">
         <div class="ri">PC</div>
         <div class="rn">PALCO</div>
-        <div class="rd">Gera o código e mostra o que o celular manda. ATENÇÃO: este site não tem som — o áudio só sai do arquivo PREACH_FLOW_V10_ESPELHO.html, aberto no PC.</div>
+        <div class="rd">Use no computador da igreja: é de lá que sai o som e a projeção. Ele gera o código da sala para o celular entrar.</div>
       </button>
       <button class="role-card" data-role="controle">
         <div class="ri">CEL</div>
@@ -2073,7 +2079,8 @@ function v2Init(){
     if(e.altKey&&(e.key==='1'||e.code==='Digit1')){e.preventDefault();v2SetTab('fundo');return}
     if(e.altKey&&(e.key==='2'||e.code==='Digit2')){e.preventDefault();v2SetTab('slide');return}
     if(e.altKey&&(e.key==='3'||e.code==='Digit3')){e.preventDefault();v2SetTab('prog');return}
-    if(tg==='INPUT'||tg==='TEXTAREA')return;
+    if(tg==='INPUT'||tg==='TEXTAREA'||tg==='SELECT')return;
+    if((e.key==='b'||e.key==='B')&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&window.PFProg&&PFProg.toggleBlack&&!document.querySelector('.pg-modal')){e.preventDefault();PFProg.toggleBlack();return}
     if(e.target.classList&&e.target.classList.contains('ts-tab')&&(e.key==='ArrowRight'||e.key==='ArrowLeft'))return;
     if(e.key==='Escape'&&document.body.classList.contains('slide-full')){v2ExitFull();return}
     if(!canvaState().url||v2Tab()==='prog')return;
