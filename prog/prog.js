@@ -732,6 +732,7 @@ async function use(a,item){
   else filaFrom([a],null,0);
 }
 async function showMedia(a){
+  if(a.kind==='imagem'&&!(pj.thumb&&pj.thumb.id===a.id))makeThumb(a);
   pj.media={id:a.id,kind:a.kind,nome:a.nome,url:a.url||null,texto:a.kind==='texto'?(a.texto||''):null,yt:a.kind==='youtube'?C.ytId(a.url):null};
   pjSend();
   await renderMonitor(a);
@@ -1281,6 +1282,33 @@ async function init(s){
 }
 function showUrl(url){const id=C.ytId(url);if(!id)return false;const a={id:'yt-'+id,kind:'youtube',nome:'YouTube',url};fila={mid:null,ids:[],idx:-1,music:null,visual:a.id,ask:null};showMedia(a);renderPjBar();return true}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(pjStart,0));else setTimeout(pjStart,0);
-window.PFProg={openWall,toggleBlack,isBlack:()=>pj.black,showUrl,pjSync,pjLaser,pjOn,openProjWindow,tour,init,closeMedia,mediaOn:()=>document.body.classList.contains('pf-media-on'),use,openConfig,_state:()=>({P,cfg,comments})};
+/* o que está no telão, para o celular ver (e passar) */
+function projInfo(){
+  const m=pj.media;if(!m)return null;
+  const inF=fila.ids.indexOf(m.id)>=0;
+  return {kind:m.kind,nome:m.nome,yt:m.yt||null,texto:m.texto?String(m.texto).slice(0,400):null,
+    i:inF?fila.idx+1:0,n:inF?fila.ids.length:0,thumb:pj.thumb&&pj.thumb.id===m.id?pj.thumb.d:null,black:!!pj.black};
+}
+function navFila(d){
+  if(fila.ids.length<2){toast('Não tem outro anexo na fila');return false}
+  let j=fila.idx+d;
+  // pula música solta (ela toca junto, mas não é "slide")
+  while(j>=0&&j<fila.ids.length&&P.anexos[fila.ids[j]]&&P.anexos[fila.ids[j]].kind==='musica'&&d<0)j+=d;
+  if(j<0){toast('Este é o primeiro da fila');return false}
+  if(j>=fila.ids.length){toast('Fim da fila');return false}
+  goFila(j,d>0);return true;
+}
+async function makeThumb(a){
+  try{
+    const u=await urlOf(a);
+    const im=new Image();
+    await new Promise((ok,no)=>{im.onload=ok;im.onerror=no;im.src=u});
+    const w=320,h=Math.max(1,Math.round(w*im.naturalHeight/Math.max(1,im.naturalWidth)));
+    const c=document.createElement('canvas');c.width=w;c.height=Math.min(h,320);
+    c.getContext('2d').drawImage(im,0,0,w,h);
+    pj.thumb={id:a.id,d:c.toDataURL('image/jpeg',.55)};
+  }catch(e){}
+}
+window.PFProg={projInfo,nav:navFila,openWall,toggleBlack,isBlack:()=>pj.black,showUrl,pjSync,pjLaser,pjOn,openProjWindow,tour,init,closeMedia,mediaOn:()=>document.body.classList.contains('pf-media-on'),use,openConfig,_state:()=>({P,cfg,comments})};
 if(window.PFAuth)PFAuth.ready.then(s=>{if(s&&document.getElementById('panel-prog'))init(s)});
 })();

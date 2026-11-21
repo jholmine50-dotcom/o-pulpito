@@ -123,6 +123,7 @@ kbd{border:1px solid #252e39;border-bottom-color:#313b47;border-radius:6px;paddi
 .cv-full{inset:0;display:flex;align-items:center;justify-content:center;background:rgba(3,5,8,.985)}
 .cv-full .cv-frame{width:100vw;height:100vh;max-width:100vw;max-height:100vh;flex:1 1 auto}
 .cv-full #cvPrev{left:14px}
+.pj-row{display:flex;gap:12px;align-items:center;margin-top:12px}.pj-ico{width:42px;height:42px;border-radius:12px;background:#0e1512;border:1px solid #2f4a3f;display:grid;place-items:center;font-size:20px;flex-shrink:0}.pj-tx{min-width:0}.pj-tx b{display:block;font-size:16px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pj-tx small{display:block;color:#7f8a98;font-size:11px;margin-top:3px;letter-spacing:.4px}.pj-prev{margin-top:12px;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:16/9;display:grid;place-items:center}.pj-prev:empty{display:none}.pj-prev img{width:100%;height:100%;object-fit:contain;display:block}.pj-prev .pj-txt{padding:14px;font-size:14px;line-height:1.5;color:#e9eef4;text-align:center;white-space:pre-wrap;max-height:100%;overflow:hidden}#projCard button[disabled]{opacity:.35;cursor:default;transform:none}
 .cv-full #cvNext{right:14px}
 .cv-quarter{top:0;left:0;right:0;height:25vh;min-height:150px;display:flex;align-items:center;justify-content:center;background:#04060a;border-bottom:1px solid #1e2734;padding:8px 58px}
 .cv-quarter .cv-frame{height:100%;aspect-ratio:16/9;max-width:100%}
@@ -313,6 +314,13 @@ input[type=range]::-moz-range-thumb{width:30px;height:30px;border:1px solid rgba
       </section>
     </div>
 
+    <section class="card hidden" id="projCard">
+      <div class="ct">NO TELÃO AGORA</div>
+      <div class="pj-row"><span class="pj-ico" id="projIco"></span><div class="pj-tx"><b id="projName">—</b><small id="projSub"></small></div></div>
+      <div class="pj-prev" id="projPrev"></div>
+      <div class="rowbtns"><button type="button" id="projBack">‹ ANTERIOR</button><button type="button" class="primary" id="projFwd">PRÓXIMO ›</button></div>
+    </section>
+
     <section class="card" id="canvaCard">
       <div class="ct">APRESENTAÇÃO CANVA</div>
       <div class="linkrow">
@@ -432,7 +440,7 @@ input[type=range]::-moz-range-thumb{width:30px;height:30px;border:1px solid rgba
 const TRACKS=[['Backing_Vocals','vocais'],['Drums','bateria'],['Bass','baixo'],['Keyboard','teclas'],['Percussion','percussão'],['Strings','cordas'],['Synth','sintetizador'],['FX','efeitos'],['Brass','metais'],['Woodwinds','sopros']];
 const SETS=[['original','Original','10 camadas'],['oceans','Agnus Dei','9 camadas'],['forte','Oração Forte','9 camadas']];
 const INTENTS=[[0,'SUAVE','espaçoso e discreto'],[25,'REFLEXIVO','íntimo e contemplativo'],[50,'PRESENTE','fundo sustentando a fala'],[72,'TENSÃO','construindo expectativa'],[100,'CLÍMAX','máxima expressão']];
-const DEFAULT={expr:50,master:24,duck:false,loop:false,playing:false,set:'original',pos:0,muted:[],action:null,canva:{url:'',page:1},laser:{on:false,x:.5,y:.5}};
+const DEFAULT={expr:50,master:24,duck:false,loop:false,playing:false,set:'original',pos:0,muted:[],action:null,canva:{url:'',page:1},laser:{on:false,x:.5,y:.5},proj:null,nav:null};
 const ALPHABET='23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 
 //__MQTT_START__
@@ -716,7 +724,8 @@ function flush(){
   if(!pending||!pending.size)return;
   const changed=Array.from(pending);
   pending=null;
-  send('state',{seq:++mySeq,changed:changed,state:JSON.parse(JSON.stringify(S))});
+  const part={};changed.forEach(k=>{part[k]=S[k]});
+  send('state',{seq:++mySeq,changed:changed,state:JSON.parse(JSON.stringify(part))});
   if(!(changed.length===1&&changed[0]==='laser'))scheduleRetain();
 }
 function scheduleRetain(){if(role!=="palco")return;
@@ -800,7 +809,7 @@ function load(){
       }
     }
   }catch(e){}
-  S.laser={on:false,x:.5,y:.5};
+  S.laser={on:false,x:.5,y:.5};S.nav=null;
   if(S.action&&S.action.s)toastSeen=S.action.s;
 }
 function startTransport(){
@@ -1116,8 +1125,37 @@ function renderCanva(){
   if(hint)hint.textContent='Tela cheia no palco · 1/4 superior no controle · setas ← → passam os slides nos dois lados.';
 }
 //__CANVA_END__
+
+/* ===== o que está no telão (fila da Projeção: imagem, PDF, vídeo, YouTube, letra) ===== */
+const PJ_ICO={imagem:'🖼',pdf:'📄',video:'🎬',youtube:'▶',texto:'🎵',canva:'🖥'};
+const PJ_NOME={imagem:'imagem',pdf:'PDF',video:'vídeo',youtube:'YouTube',texto:'letra / texto'};
+function projNav(d){
+  if(role!=='controle'||!S.proj)return;
+  S.nav={d:d>0?1:-1,s:Date.now().toString(36)+Math.random().toString(36).slice(2,6)};
+  commit(['nav'],true);
+  toast(d>0?'próximo →':'← anterior');log('cmd','telão → '+(d>0?'próximo':'anterior'));
+}
+let projSig='';
+function renderProj(){
+  const card=$('projCard');if(!card)return;
+  const p=S.proj;
+  const show=role==='controle'&&!!p&&!canvaState().url;
+  card.classList.toggle('hidden',!show);
+  if(!show){projSig='';return}
+  const sig=JSON.stringify(p);if(sig===projSig)return;projSig=sig;
+  $('projIco').textContent=PJ_ICO[p.kind]||'•';
+  $('projName').textContent='@'+(p.nome||'');
+  $('projSub').textContent=(PJ_NOME[p.kind]||p.kind||'')+(p.n>1?' · '+p.i+' de '+p.n+' na fila':'')+(p.black?' · TELA PRETA':'');
+  const pv=$('projPrev');pv.innerHTML='';
+  const img=src=>{const i=document.createElement('img');i.alt='';i.src=src;pv.appendChild(i)};
+  if(p.thumb)img(p.thumb);
+  else if(p.yt)img('https://i.ytimg.com/vi/'+encodeURIComponent(p.yt)+'/hqdefault.jpg');
+  else if(p.texto){const t=document.createElement('div');t.className='pj-txt';t.textContent=p.texto;pv.appendChild(t)}
+  $('projBack').disabled=!(p.n>1&&p.i>1);
+  $('projFwd').disabled=!(p.n>1&&p.i<p.n);
+}
 function render(){
-  renderScene();renderFader();renderMaster();renderButtons();renderSets();renderChips();renderStatus();renderCanva();renderLaser();
+  renderScene();renderFader();renderMaster();renderButtons();renderSets();renderChips();renderStatus();renderCanva();renderLaser();renderProj();
 }
 function buildLinks(){
   const base=location.origin+location.pathname;
@@ -1194,6 +1232,7 @@ function boot(){
 }
 
 function wire(){
+  {const b=$('projBack'),f=$('projFwd');if(b)b.onclick=()=>projNav(-1);if(f)f.onclick=()=>projNav(1)}
   document.querySelectorAll('.role-card').forEach(btn=>{
     btn.onclick=()=>{
       role=btn.dataset.role;

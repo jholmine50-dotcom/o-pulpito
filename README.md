@@ -11,7 +11,8 @@
 2. **Celular:** abra o site abaixo, digite o código (**6 caracteres**) e toque em **ENTRAR NA SALA**. Se o código estiver errado ou não houver palco aberto com ele, o celular avisa (**Sala não encontrada**) e pede o código de novo.
 3. No celular aparece o CONTROLE (TOCAR, STOP, intensidade, fala, faixas); o PC executa e o áudio sai dele.
 4. **Slides do Canva:** cole o link de qualquer apresentação em **APRESENTAÇÃO CANVA** (no PC ou no celular). Ela abre em **tela cheia no palco** e no **1/4 superior no controle**, com as setinhas **← →** para passar os slides dos dois lados.
-5. **Laser:** no celular, um **trackpad** ocupa 1/5 inferior da tela — passe o dedo e um ponteiro vermelho aparece no slide e no palco (some sozinho após 5 s parado); no PC, basta mover o mouse sobre o slide. No controle do PC, o botão **MAX** deixa o slide em tela inteira.
+5. **Outros conteúdos da Projeção** (imagem, PDF, vídeo, YouTube, letra — os anexos da fila): o celular mostra o cartão **NO TELÃO AGORA** com o nome, a posição na fila (ex.: 2 de 5) e uma prévia (miniatura da imagem, capa do YouTube ou o texto da letra). **‹ ANTERIOR** / **PRÓXIMO ›** passam a fila do telão. No PC, as setas ‹ › da barra e as teclas `←` `→` também passam a fila quando não é Canva.
+6. **Laser:** no celular, um **trackpad** ocupa 1/5 inferior da tela — passe o dedo e um ponteiro vermelho aparece no slide e no palco (some sozinho após 5 s parado); no PC, basta mover o mouse sobre o slide. No controle do PC, o botão **MAX** deixa o slide em tela inteira.
 
 ## Versões do palco
 
