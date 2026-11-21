@@ -127,6 +127,7 @@ const ESPELHAR=[
 function CONTROLE(P){return [
   {el:'#'+P+'netPill',up:'.pills',t:'Você está conectado',d:'<b>Verde</b> = ligado ao palco. Tudo o que você mexer aqui acontece no PC na hora — o som sai de lá.'},
   {el:'#'+P+'canvaUrl',up:'.card',t:'Slides do Canva',d:'Cole o link do Canva e toque <b>ABRIR</b>: ele aparece no telão e aqui em cima, com setas para passar. A faixa de baixo vira um <b>trackpad</b>: arraste o dedo e um laser aparece no slide.'},
+  {el:'#'+P+'projCard',t:'O que está no telão',d:'Quando o PC está passando uma <b>imagem, PDF, vídeo, YouTube ou letra</b> da Projeção, ela aparece aqui. <b>‹ ANTERIOR</b> e <b>PRÓXIMO ›</b> passam a fila do telão direto do celular.'},
   {el:'#'+P+'fader',up:'.card',t:'Intensidade',d:'Arraste para mudar o clima da música: <b>SUAVE</b> na reflexão, <b>CLÍMAX</b> no apelo. Dois toques voltam ao meio.'},
   {el:'#'+P+'duckBtn',t:'Fala',d:'Toque em <b>FALA</b> quando alguém for falar: a música abaixa. Toque de novo para voltar.'},
   {el:'#'+P+'playBtn',up:'.card',t:'Tocar e parar',d:'<b>TOCAR</b>, <b>STOP</b>, <b>FADE OUT</b> e <b>LOOP</b> mandam o comando para o palco na hora.'},
